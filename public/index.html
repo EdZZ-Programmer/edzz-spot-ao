@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="pt-AO">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="EdZZ-Spot AO — Computadores Gaming, notebooks, jogos, software e assistência técnica em Luanda, Angola.">
+    <meta name="author" content="EdZZ-Spot AO">
+    <meta name="theme-color" content="#080b14">
+
+    <title>EdZZ-Spot AO | Gaming & Tecnologia em Angola</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<!-- 01 — INTRO -->
+<div id="introScreen" class="intro-screen">
+    <div class="intro-content">
+        <div class="intro-logo">EdZZ<span>Spot</span><small>AO</small></div>
+        <div class="intro-line"></div>
+        <p id="introLoadingText">A preparar a experiência...</p>
+        <div class="intro-loader"><span></span></div>
+    </div>
+</div>
+
+<!-- 02 — HEADER -->
+<header id="header" class="header">
+    <div class="container header-container">
+
+        <a href="#inicio" class="brand" aria-label="EdZZ-Spot AO">
+            <span class="brand-main">EdZZ<span>Spot</span></span>
+            <span class="brand-country">AO</span>
+        </a>
+
+        <nav id="mainNav" class="main-nav" aria-label="Navegação principal">
+            <a href="#inicio" class="nav-link active">Início</a>
+            <a href="#computadores" class="nav-link">Computadores</a>
+            <a href="#servicos" class="nav-link">Serviços</a>
+            <a href="#jogos" class="nav-link">Jogos</a>
+            <a href="#programas" class="nav-link">Programas</a>
+            <a href="#avaliacoes" class="nav-link">Avaliações</a>
+            <a href="#sobre" class="nav-link">Sobre</a>
+            <a href="#contacto" class="nav-link">Contacto</a>
+        </nav>
+
+        <div class="header-actions">
+            <button id="themeToggle" class="icon-button" type="button" aria-label="Alterar tema">🌙</button>
+
+            <button id="openFavorites" class="icon-button" type="button" aria-label="Ver favoritos" title="Favoritos">
+                <span>♥</span>
+                <span id="favoritesCount" class="cart-count favorites-count">0</span>
+            </button>
+
+            <button id="openLogin" class="user-button" type="button" aria-label="Entrar na conta">
+                <span>👤</span>
+                <span class="user-button-text">Entrar</span>
+                <span id="adminOrderBadge" class="cart-count admin-order-badge" hidden>0</span>
+            </button>
+
+            <button id="openCart" class="cart-button" type="button" aria-label="Abrir carrinho">
+                <span class="cart-icon">🛒</span>
+                <span class="cart-label">Carrinho</span>
+                <span id="cartCount" class="cart-count">0</span>
+            </button>
+        </div>
+
+        <button id="mobileMenuButton" class="mobile-menu-button" type="button" aria-label="Abrir menu">
+            <span></span><span></span><span></span>
+        </button>
+
+    </div>
+</header>
+
+<!-- 03 — CARROSSEL -->
+<section class="carousel-section">
+    <div class="carousel-container">
+        <div class="carousel-track" id="carouselTrack"></div>
+        <button class="carousel-arrow carousel-prev" id="carouselPrev" aria-label="Slide anterior">‹</button>
+        <button class="carousel-arrow carousel-next" id="carouselNext" aria-label="Slide seguinte">›</button>
+        <div class="carousel-dots" id="carouselDots"></div>
+    </div>
+</section>
+
+<!-- 04 — MAIN -->
+<main>
+
+<!-- HERO -->
+<section id="inicio" class="hero section">
+    <div class="container hero-container">
+        <div class="hero-content reveal">
+            <div class="hero-badge"><span></span>GAMING • TECH • PERFORMANCE • ANGOLA</div>
+            <h1>O teu próximo <span>nível</span> começa aqui.</h1>
+            <p>Computadores Gaming, notebooks, equipamentos profissionais e assistência técnica especializada em Luanda, Angola.</p>
+            <div class="hero-actions">
+                <a href="#computadores" class="btn btn-primary">Explorar computadores</a>
+                <a href="#servicos" class="btn btn-secondary">Ver serviços</a>
+            </div>
+            <div class="hero-trust">
+                <div><strong>Gaming</strong><span>Alta performance</span></div>
+                <div><strong>Tech</strong><span>Soluções modernas</span></div>
+                <div><strong>Cazenga</strong><span>Luanda, Angola</span></div>
+            </div>
+        </div>
+
+        <div class="hero-visual reveal">
+            <div class="hero-glow"></div>
+            <img id="heroImage" class="hero-image" src="" alt="PC Gamer EdZZ-Spot" hidden>
+            <div id="heroAnimation" class="gaming-pc">
+                <div class="pc-case">
+                    <div class="pc-glass">
+                        <div class="pc-fan fan-one"></div>
+                        <div class="pc-fan fan-two"></div>
+                        <div class="pc-fan fan-three"></div>
+                        <div class="pc-gpu">RTX</div>
+                    </div>
+                </div>
+                <div class="pc-base"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- STATS -->
+<section class="stats-section section-sm">
+    <div class="container stats-grid">
+        <div class="stat-card reveal"><span class="stat-icon">⚡</span><strong>Performance</strong><p>Equipamentos preparados para alto desempenho.</p></div>
+        <div class="stat-card reveal"><span class="stat-icon">🛠️</span><strong>Assistência</strong><p>Reparação, manutenção e upgrades.</p></div>
+        <div class="stat-card reveal"><span class="stat-icon">🎮</span><strong>Gaming</strong><p>Soluções para jogadores e criadores.</p></div>
+        <div class="stat-card reveal"><span class="stat-icon">🇦🇴</span><strong>Angola</strong><p>Feito para o mercado angolano.</p></div>
+    </div>
+</section>
+
+<!-- COMPUTADORES -->
+<section id="computadores" class="products-section section">
+    <div class="container">
+        <header class="section-heading reveal">
+            <span class="section-label">EQUIPAMENTOS</span>
+            <h2>Encontra o teu <span>próximo PC</span></h2>
+            <p>Escolhe entre máquinas Gaming, notebooks e computadores para escritório.</p>
+        </header>
+        <div class="shop-toolbar">
+            <div class="product-filters">
+                <button class="filter-button active" data-filter="all">Todos</button>
+                <button class="filter-button" data-filter="gaming">Gaming</button>
+                <button class="filter-button" data-filter="notebook">Notebooks</button>
+                <button class="filter-button" data-filter="office">Office</button>
+            </div>
+            <div class="search-box">
+                <span aria-hidden="true">🔎</span>
+                <input id="productSearch" type="search" placeholder="Pesquisar produtos...">
+            </div>
+        </div>
+        <div id="productsGrid" class="products-grid"></div>
+    </div>
+</section>
+
+<!-- SERVIÇOS -->
+<section id="servicos" class="services-section section">
+    <div class="container">
+        <header class="section-heading reveal">
+            <span class="section-label">ASSISTÊNCIA TÉCNICA</span>
+            <h2>O teu computador, <span>sempre no máximo</span></h2>
+            <p>Reparação, otimização, manutenção e upgrades. Também fazemos atendimento ao domicílio.</p>
+        </header>
+        <div id="servicesGrid" class="services-grid"></div>
+    </div>
+</section>
+
+<!-- JOGOS -->
+<section id="jogos" class="games-section section">
+    <div class="container">
+        <header class="section-heading reveal">
+            <span class="section-label">GAMING</span>
+            <h2>O jogo começa <span>aqui</span></h2>
+            <p>Descobre jogos disponíveis na EdZZ-Spot AO.</p>
+        </header>
+        <div id="gamesGrid" class="games-grid"></div>
+    </div>
+</section>
+
+<!-- PROGRAMAS -->
+<section id="programas" class="software-section section">
+    <div class="container">
+        <header class="section-heading reveal">
+            <span class="section-label">SOFTWARE</span>
+            <h2>As ferramentas <span>certas</span></h2>
+            <p>Programas para trabalho, estudo e produtividade.</p>
+        </header>
+        <div id="softwareGrid" class="software-grid"></div>
+    </div>
+</section>
+
+<!-- AVALIAÇÕES -->
+<section id="avaliacoes" class="comments-section section">
+    <div class="container">
+        <header class="section-heading reveal">
+            <span class="section-label">AVALIAÇÕES</span>
+            <h2>O que dizem <span>os nossos clientes</span></h2>
+            <p>Partilha a tua experiência com a EdZZ-Spot AO.</p>
+        </header>
+        <div id="commentForm-wrapper" class="comment-form-wrapper reveal"></div>
+        <div id="commentsList" class="comments-list reveal"></div>
+    </div>
+</section>
+
+<!-- SOBRE -->
+<section id="sobre" class="about-section section">
+    <div class="container">
+        <header class="section-heading reveal">
+            <span class="section-label">SOBRE NÓS</span>
+            <h2>Tecnologia que <span>acompanha o teu ritmo.</span></h2>
+        </header>
+
+        <div class="about-container">
+            <div class="about-content reveal">
+                <p>A <strong>EdZZ-Spot AO</strong> é um projeto angolano criado em <strong>Setembro de 2026</strong>, dedicado a tornar a tecnologia, o gaming e a assistência técnica mais acessíveis para os clientes em Angola.</p>
+                <p>Trabalhamos com computadores Gaming, notebooks, computadores de escritório, jogos, software, manutenção e upgrades. Fazemos atendimento presencial no nosso espaço em <strong>Cazenga, Vila Flor</strong> e <strong>atendimento ao domicílio</strong> em toda Luanda.</p>
+
+                <div class="owner-card">
+                    <div class="owner-avatar" id="ownerAvatar">
+                        <img id="ownerPhoto" src="" alt="Edmilson" hidden>
+                        <span id="ownerPlaceholder">👤</span>
+                    </div>
+                    <div>
+                        <strong>Edmilson Dumilde Diogo José</strong>
+                        <span>Proprietário &amp; Desenvolvedor</span>
+                    </div>
+                </div>
+
+                <a href="#contacto" class="btn btn-primary">Falar connosco</a>
+            </div>
+
+            <div class="about-features reveal">
+                <div class="feature-item"><span>01</span><div><h3>Performance</h3><p>Equipamentos para diferentes necessidades.</p></div></div>
+                <div class="feature-item"><span>02</span><div><h3>Assistência</h3><p>Suporte técnico especializado e ao domicílio.</p></div></div>
+                <div class="feature-item"><span>03</span><div><h3>Personalização</h3><p>Upgrades adaptados a cada cliente.</p></div></div>
+                <div class="feature-item"><span>04</span><div><h3>Confiança</h3><p>Atendimento transparente e local.</p></div></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CONTACTO -->
+<section id="contacto" class="contact-section section">
+    <div class="container">
+        <header class="section-heading reveal">
+            <span class="section-label">CONTACTO</span>
+            <h2>Vamos falar sobre <span>tecnologia?</span></h2>
+            <p>Envia-nos uma mensagem ou visita-nos em Cazenga, Vila Flor.</p>
+        </header>
+
+        <div class="contact-container">
+            <div class="contact-info reveal">
+                <div class="contact-info-card"><span class="contact-icon">📱</span><div><small>Telefone</small><strong><a href="tel:+244946665266">+244 946 665 266</a></strong></div></div>
+                <div class="contact-info-card"><span class="contact-icon">💬</span><div><small>WhatsApp</small><strong><a href="https://wa.me/244956004348" target="_blank" rel="noopener">+244 956 004 348</a></strong></div></div>
+                <div class="contact-info-card"><span class="contact-icon">✉️</span><div><small>Email principal</small><strong><a href="mailto:edmilsondiogo1234@gmail.com">edmilsondiogo1234@gmail.com</a></strong></div></div>
+                <div class="contact-info-card"><span class="contact-icon">✉️</span><div><small>Email profissional</small><strong><a href="mailto:edmilsonddjose@gmail.com">edmilsonddjose@gmail.com</a></strong></div></div>
+                <div class="contact-info-card"><span class="contact-icon">📍</span><div><small>Localização</small><strong>Luanda, Cazenga — Vila Flor</strong><span class="contact-info-extra">Rua G</span></div></div>
+                <div class="contact-info-card hours-card">
+                    <span class="contact-icon">🕐</span>
+                    <div class="hours-content">
+                        <small>Horário</small>
+                        <div class="hours-list">
+                            <span>Seg–Sex</span><strong>08:30 – 18:00</strong>
+                            <span>Sábado</span><strong>09:00 – 15:00</strong>
+                            <span>Domingo</span><strong>12:30 – 15:00</strong>
+                        </div>
+                        <span id="openStatus" class="open-status">—</span>
+                    </div>
+                </div>
+            </div>
+
+            <form id="contactForm" class="contact-form reveal">
+                <div class="form-row">
+                    <div class="form-group"><label for="contactName">Nome</label><input id="contactName" name="contactName" type="text" required></div>
+                    <div class="form-group"><label for="contactPhone">Telefone</label><input id="contactPhone" name="contactPhone" type="tel" required></div>
+                </div>
+                <div class="form-group"><label for="contactEmail">Email</label><input id="contactEmail" name="contactEmail" type="email"></div>
+                <div class="form-group">
+                    <label for="service">Serviço</label>
+                    <select id="service" name="service" required>
+                        <option value="">Selecionar serviço</option>
+                        <option value="Reparação">Reparação</option>
+                        <option value="Otimização">Otimização</option>
+                        <option value="Manutenção">Manutenção</option>
+                        <option value="Upgrade">Upgrade</option>
+                        <option value="Otimização ao domicílio">Otimização ao domicílio</option>
+                        <option value="Compra de computador">Compra de computador</option>
+                        <option value="Jogos">Jogos</option>
+                        <option value="Programas">Programas / Software</option>
+                        <option value="Outro">Outro</option>
+                    </select>
+                </div>
+                <div class="form-group"><label for="message">Mensagem</label><textarea id="message" name="message" rows="6" required></textarea></div>
+                <button class="btn btn-primary" type="submit">Enviar mensagem →</button>
+            </form>
+        </div>
+    </div>
+</section>
+
+</main>
+
+<!-- FOOTER -->
+<footer class="footer">
+    <div class="container">
+        <div class="footer-main">
+            <div class="footer-brand">
+                <a href="#inicio" class="brand">
+                    <span class="brand-main">EdZZ<span>Spot</span></span>
+                    <span class="brand-country">AO</span>
+                </a>
+                <p>Gaming, tecnologia e assistência técnica em Luanda, Angola.</p>
+                <div class="social-links">
+                    <a href="https://wa.me/244956004348" target="_blank" rel="noopener" title="WhatsApp">💬</a>
+                    <a href="https://facebook.com" target="_blank" rel="noopener" title="Facebook">📘</a>
+                    <a href="https://instagram.com" target="_blank" rel="noopener" title="Instagram">📸</a>
+                    <a href="mailto:edmilsondiogo1234@gmail.com" title="Email">✉️</a>
+                </div>
+            </div>
+            <div class="footer-column">
+                <h3>Navegação</h3>
+                <a href="#inicio">Início</a><a href="#computadores">Computadores</a>
+                <a href="#servicos">Serviços</a><a href="#jogos">Jogos</a>
+            </div>
+            <div class="footer-column">
+                <h3>Empresa</h3>
+                <a href="#sobre">Sobre nós</a><a href="#programas">Programas</a>
+                <a href="#avaliacoes">Avaliações</a><a href="#contacto">Contacto</a>
+            </div>
+            <div class="footer-column">
+                <h3>Contacto</h3>
+                <a href="tel:+244946665266">+244 946 665 266</a>
+                <a href="https://wa.me/244956004348" target="_blank" rel="noopener">+244 956 004 348</a>
+                <a href="mailto:edmilsondiogo1234@gmail.com">edmilsondiogo1234@gmail.com</a>
+                <span>Luanda, Cazenga — Vila Flor</span>
+            </div>
+        </div>
+        <div class="footer-legal">
+            <div><strong>EdZZ SpoT Gamer</strong> • Empresário em nome individual</div>
+            <div>Fundada em Setembro de 2026 • Luanda, Angola</div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2026 EdZZ-Spot AO. Todos os direitos reservados.</p>
+            <p>Gaming • Tech • Performance</p>
+        </div>
+    </div>
+</footer>
+
+<!-- WHATSAPP -->
+<a href="https://wa.me/244956004348?text=Ol%C3%A1%20EdZZ-Spot%20AO!%20Gostaria%20de%20saber%20mais."
+   target="_blank" rel="noopener" class="whatsapp-float" aria-label="WhatsApp">
+    <span class="whatsapp-icon">💬</span>
+    <span class="whatsapp-label">Falar connosco</span>
+</a>
+
+<!-- CARRINHO -->
+<div id="cartOverlay" class="cart-overlay"></div>
+<aside id="cartDrawer" class="cart-drawer">
+    <div class="cart-header">
+        <div><span class="section-label">SHOPPING</span><h2>O teu carrinho</h2></div>
+        <button id="closeCart" class="modal-close">×</button>
+    </div>
+    <div id="cartItems" class="cart-items"></div>
+    <div id="cartEmpty" class="cart-empty">
+        <div class="cart-empty-icon">🛒</div>
+        <h3>O teu carrinho está vazio</h3>
+        <p>Adiciona produtos para começar.</p>
+        <button id="continueShopping" class="btn btn-secondary">Continuar a comprar</button>
+    </div>
+    <div id="cartFooter" class="cart-footer">
+        <div class="cart-summary-row"><span>Subtotal</span><strong id="cartSubtotal">0 Kz</strong></div>
+        <div class="cart-summary-row"><span>Entrega</span><strong id="cartShipping">0 Kz</strong></div>
+        <div class="cart-total-row"><span>Total</span><strong id="cartTotal">0 Kz</strong></div>
+        <button id="checkoutButton" class="btn btn-primary checkout-button">Finalizar pedido →</button>
+    </div>
+</aside>
+
+<!-- FAVORITOS -->
+<div id="favoritesModal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content favorites-modal">
+        <header class="modal-header">
+            <div><span class="section-label">A TUA LISTA</span><h2>♥ Favoritos</h2></div>
+            <button id="closeFavorites" class="modal-close">×</button>
+        </header>
+        <div id="favoritesContent" class="favorites-content"></div>
+    </div>
+</div>
+
+<!-- PRODUTO -->
+<div id="productModal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content product-modal">
+        <button id="closeProductModal" class="modal-close">×</button>
+        <div id="productModalContent"></div>
+    </div>
+</div>
+
+<!-- CHECKOUT -->
+<div id="checkoutModal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content checkout-modal-content">
+        <header class="modal-header">
+            <div><span class="section-label">CHECKOUT</span><h2>Finalizar pedido</h2></div>
+            <button id="closeCheckoutModal" class="modal-close">×</button>
+        </header>
+        <div class="checkout-layout">
+            <form id="checkoutForm">
+                <div class="form-group"><label for="customerName">Nome completo</label><input id="customerName" name="customerName" type="text" required></div>
+                <div class="form-row">
+                    <div class="form-group"><label for="customerPhone">Telefone</label><input id="customerPhone" name="customerPhone" type="tel" required></div>
+                    <div class="form-group"><label for="customerEmail">Email</label><input id="customerEmail" name="customerEmail" type="email" required></div>
+                </div>
+                <div class="form-group"><label for="customerAddress">Endereço</label><textarea id="customerAddress" name="customerAddress" rows="3" required></textarea></div>
+                <div class="form-group">
+                    <label for="paymentMethod">Método de pagamento</label>
+                    <select id="paymentMethod" name="paymentMethod" required>
+                        <option value="">Selecionar</option>
+                        <option value="Pagamento na entrega">Pagamento na entrega</option>
+                        <option value="Transferência bancária">Transferência bancária</option>
+                        <option value="Multicaixa Express">Multicaixa Express</option>
+                    </select>
+                    <small>Demonstração. Nenhum pagamento real será processado.</small>
+                </div>
+                <button class="btn btn-primary" type="submit">Confirmar pedido ✓</button>
+            </form>
+            <aside class="checkout-summary">
+                <span class="section-label">RESUMO</span>
+                <h3>Total</h3>
+                <strong id="checkoutTotal" class="checkout-total">0 Kz</strong>
+                <p>Depois da confirmação será gerado um número de pedido.</p>
+            </aside>
+        </div>
+    </div>
+</div>
+
+<!-- COMPROVATIVO -->
+<div id="invoiceModal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content invoice-modal-content">
+        <header class="invoice-header">
+            <div class="invoice-logo">
+                <div class="brand"><span class="brand-main">EdZZ<span>Spot</span></span><span class="brand-country">AO</span></div>
+                <small>Gaming • Tech • Performance</small>
+                <small>Luanda, Cazenga — Vila Flor</small>
+            </div>
+            <button id="closeInvoiceModal" class="modal-close">×</button>
+        </header>
+        <div class="invoice-title-area"><span class="section-label">PEDIDO CONFIRMADO</span><h2>Comprovativo de Pedido</h2></div>
+        <div class="invoice-meta">
+            <div><span>Número do pedido</span><strong id="invoiceOrderNumber">—</strong></div>
+            <div><span>Data</span><strong id="invoiceDate">—</strong></div>
+        </div>
+        <div class="invoice-customer">
+            <div><span>Cliente</span><strong id="invoiceCustomer">—</strong></div>
+            <div><span>Telefone</span><strong id="invoicePhone">—</strong></div>
+        </div>
+        <div id="invoiceItems" class="invoice-items"></div>
+        <div class="invoice-summary">
+            <div><span>Subtotal</span><strong id="invoiceSubtotal">0 Kz</strong></div>
+            <div><span>Entrega</span><strong id="invoiceShipping">0 Kz</strong></div>
+            <div class="invoice-grand-total"><span>Total</span><strong id="invoiceTotal">0 Kz</strong></div>
+        </div>
+        <div class="invoice-disclaimer">
+            <strong>Comprovativo de Pedido</strong>
+            <p>Este documento é apenas um resumo da encomenda. Não constitui uma fatura fiscal oficialmente válida.</p>
+        </div>
+        <div class="invoice-actions">
+            <button id="printInvoice" class="btn btn-primary">🖨️ Imprimir</button>
+            <button id="printInvoiceBottom" class="btn btn-secondary">Guardar como PDF</button>
+            <button id="closeInvoice" class="btn btn-secondary">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<!-- LOGIN / REGISTO -->
+<div id="loginModal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content auth-modal">
+        <button id="closeLogin" class="modal-close">×</button>
+
+        <header class="auth-header">
+            <span class="section-label">EDZZ-SPOT AO</span>
+            <h2 id="authTitle">Entrar na conta</h2>
+            <p id="authSubtitle">Acede aos teus pedidos e serviços.</p>
+        </header>
+
+        <div class="auth-tabs">
+            <button class="auth-tab active" data-auth-tab="login">Entrar</button>
+            <button class="auth-tab" data-auth-tab="register">Criar conta</button>
+        </div>
+
+        <form id="loginForm" class="auth-form active">
+            <div class="form-group">
+                <label for="loginEmail">Email</label>
+                <input id="loginEmail" name="loginEmail" type="email" required>
+            </div>
+            <div class="form-group">
+                <label for="loginPassword">Palavra-passe</label>
+                <input id="loginPassword" name="loginPassword" type="password" required>
+            </div>
+
+            <button class="btn btn-primary" type="submit" id="loginSubmitBtn">Entrar</button>
+
+            <button type="button" id="openRecover" class="auth-link">
+                Esqueci-me da palavra-passe
+            </button>
+        </form>
+
+        <form id="registerForm" class="auth-form">
+            <div class="form-group">
+                <label for="registerName">Nome completo</label>
+                <input id="registerName" name="registerName" type="text" required>
+            </div>
+            <div class="form-group">
+                <label for="registerEmail">Email</label>
+                <input id="registerEmail" name="registerEmail" type="email" required>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="registerPhone">Telefone</label>
+                    <input id="registerPhone" name="registerPhone" type="tel" placeholder="9XX XXX XXX">
+                </div>
+                <div class="form-group">
+                    <label for="registerPassword">Palavra-passe</label>
+                    <input id="registerPassword" name="registerPassword" type="password" minlength="6" required>
+                </div>
+            </div>
+
+            <div class="auth-security-section">
+                <span class="section-label">Pergunta de segurança</span>
+                <p class="auth-security-hint">Usada para recuperar a tua conta se esqueceres a palavra-passe.</p>
+
+                <div class="form-group">
+                    <label for="registerQuestion">Escolhe uma pergunta</label>
+                    <select id="registerQuestion" name="registerQuestion" required>
+                        <option value="">Selecionar pergunta</option>
+                        <option value="Qual é o nome do teu primeiro animal de estimação?">Qual é o nome do teu primeiro animal de estimação?</option>
+                        <option value="Qual é o nome da tua mãe?">Qual é o nome da tua mãe?</option>
+                        <option value="Em que cidade nasceste?">Em que cidade nasceste?</option>
+                        <option value="Qual é o nome da tua escola primária?">Qual é o nome da tua escola primária?</option>
+                        <option value="Qual é o teu prato favorito?">Qual é o teu prato favorito?</option>
+                        <option value="Qual é o nome do teu melhor amigo de infância?">Qual é o nome do teu melhor amigo de infância?</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="registerAnswer">Resposta</label>
+                    <input id="registerAnswer" name="registerAnswer" type="text" required placeholder="A tua resposta secreta">
+                </div>
+            </div>
+
+            <button class="btn btn-primary" type="submit" id="registerSubmitBtn">Criar conta</button>
+        </form>
+
+        <p class="auth-demo" id="authMessage"></p>
+    </div>
+</div>
+
+<!-- RECUPERAÇÃO DE SENHA -->
+<div id="recoverModal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content auth-modal">
+        <button id="closeRecover" class="modal-close">×</button>
+
+        <header class="auth-header">
+            <span class="section-label">RECUPERAÇÃO</span>
+            <h2>Recuperar palavra-passe</h2>
+            <p id="recoverSubtitle">Insere o teu email para começares.</p>
+        </header>
+
+        <form id="recoverStep1" class="auth-form active">
+            <div class="form-group">
+                <label for="recoverEmail">Email da conta</label>
+                <input id="recoverEmail" name="recoverEmail" type="email" required>
+            </div>
+            <button class="btn btn-primary" type="submit" id="recoverStep1Btn">Continuar →</button>
+            <button type="button" class="auth-link" id="backToLogin">Voltar ao login</button>
+        </form>
+
+        <form id="recoverStep2" class="auth-form">
+            <div class="form-group">
+                <label>Pergunta de segurança</label>
+                <div id="recoverQuestionBox" class="recover-question-box">—</div>
+            </div>
+
+            <div class="form-group">
+                <label for="recoverAnswer">A tua resposta</label>
+                <input id="recoverAnswer" name="recoverAnswer" type="text" required>
+            </div>
+
+            <div class="form-group">
+                <label for="recoverNewPassword">Nova palavra-passe</label>
+                <input id="recoverNewPassword" name="recoverNewPassword" type="password" minlength="6" required>
+            </div>
+
+            <button class="btn btn-primary" type="submit" id="recoverStep2Btn">Alterar palavra-passe</button>
+            <button type="button" class="auth-link" id="backToStep1">← Voltar</button>
+        </form>
+
+        <p class="auth-demo" id="recoverMessage"></p>
+    </div>
+</div>
+
+<!-- PERFIL -->
+<div id="profileModal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content auth-modal">
+        <button id="closeProfile" class="modal-close">×</button>
+        <header class="auth-header">
+            <span class="section-label">A TUA CONTA</span>
+            <h2>Olá, <span id="profileName">—</span>!</h2>
+            <p id="profileEmail">—</p>
+        </header>
+        <div class="profile-info">
+            <div class="profile-row"><span>📱 Telefone</span><strong id="profilePhone">—</strong></div>
+            <div class="profile-row"><span>👤 Tipo de conta</span><strong id="profileRole">Cliente</strong></div>
+        </div>
+        <div class="profile-actions">
+            <button id="openAdminFromProfile" class="btn btn-primary" style="display:none;">Abrir painel admin</button>
+            <button id="logoutButton" class="btn btn-secondary">Sair da conta</button>
+        </div>
+    </div>
+</div>
+
+<!-- ADMIN -->
+<div id="adminModal" class="modal admin-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content admin-content">
+
+        <header class="admin-header">
+            <div>
+                <span class="section-label">ADMINISTRADOR</span>
+                <h2>EdZZ-Spot AO Dashboard</h2>
+            </div>
+            <div class="admin-header-actions">
+                <button id="logoutFromAdmin" class="btn btn-secondary" type="button">Sair da conta</button>
+                <button id="closeAdmin" class="modal-close">×</button>
+            </div>
+        </header>
+
+        <div class="admin-grid">
+            <div class="admin-stat"><span>📦</span><strong id="adminProductCount">0</strong><small>Produtos</small></div>
+            <div class="admin-stat"><span>🛒</span><strong id="adminOrderCount">0</strong><small>Pedidos</small></div>
+            <div class="admin-stat"><span>💰</span><strong id="adminRevenue">0 Kz</strong><small>Vendas</small></div>
+            <div class="admin-stat"><span>👥</span><strong id="adminClientCount">0</strong><small>Clientes</small></div>
+        </div>
+
+        <nav class="admin-tabs">
+            <button class="admin-tab active" data-admin-tab="products">Produtos</button>
+            <button class="admin-tab" data-admin-tab="services">Serviços</button>
+            <button class="admin-tab" data-admin-tab="games">Jogos</button>
+            <button class="admin-tab" data-admin-tab="software">Programas</button>
+            <button class="admin-tab" data-admin-tab="carousel">Carrossel</button>
+            <button class="admin-tab" data-admin-tab="orders">Pedidos</button>
+            <button class="admin-tab" data-admin-tab="invoices">Faturas</button>
+            <button class="admin-tab" data-admin-tab="clients">Clientes</button>
+            <button class="admin-tab" data-admin-tab="logins">Logins</button>
+            <button class="admin-tab" data-admin-tab="hero">Imagens</button>
+        </nav>
+
+        <div id="adminProducts" class="admin-panel active">
+            <header class="admin-panel-header">
+                <div><h3>Produtos</h3><p>Adiciona e gere os computadores.</p></div>
+                <button id="openProductForm" class="btn btn-primary">+ Novo produto</button>
+            </header>
+            <div id="adminProductList" class="admin-list"></div>
+        </div>
+
+        <div id="adminServices" class="admin-panel">
+            <header class="admin-panel-header">
+                <div><h3>Serviços</h3><p>Gere os serviços e preços.</p></div>
+                <button id="openServiceForm" class="btn btn-primary">+ Novo serviço</button>
+            </header>
+            <div id="adminServiceList" class="admin-list"></div>
+        </div>
+
+        <div id="adminGames" class="admin-panel">
+            <header class="admin-panel-header">
+                <div><h3>Jogos</h3><p>Gere os jogos e preços.</p></div>
+                <button id="openGameForm" class="btn btn-primary">+ Novo jogo</button>
+            </header>
+            <div id="adminGameList" class="admin-list"></div>
+        </div>
+
+        <div id="adminSoftware" class="admin-panel">
+            <header class="admin-panel-header">
+                <div><h3>Programas</h3><p>Gere os programas e preços.</p></div>
+                <button id="openSoftwareForm" class="btn btn-primary">+ Novo programa</button>
+            </header>
+            <div id="adminSoftwareList" class="admin-list"></div>
+        </div>
+
+        <div id="adminCarousel" class="admin-panel">
+            <header class="admin-panel-header">
+                <div><h3>Carrossel de Destaques</h3><p>Gere os slides do topo do site.</p></div>
+                <button id="openCarouselForm" class="btn btn-primary">+ Novo slide</button>
+            </header>
+            <div id="adminCarouselList" class="admin-list"></div>
+        </div>
+
+        <div id="adminOrders" class="admin-panel">
+            <header class="admin-panel-header">
+                <div><h3>Pedidos</h3><p>Consulta os pedidos realizados.</p></div>
+            </header>
+            <div id="adminOrderList" class="admin-list"></div>
+        </div>
+
+        <div id="adminInvoices" class="admin-panel">
+            <header class="admin-panel-header">
+                <div><h3>Faturas</h3><p>Todas as encomendas realizadas.</p></div>
+                <button id="refreshInvoices" class="btn btn-secondary" type="button">↻ Atualizar</button>
+            </header>
+            <div id="adminInvoiceList" class="admin-list"></div>
+        </div>
+
+        <div id="adminClients" class="admin-panel">
+            <header class="admin-panel-header">
+                <div><h3>Clientes</h3><p>Gere os utilizadores registados.</p></div>
+                <button id="refreshClients" class="btn btn-secondary" type="button">↻ Atualizar</button>
+            </header>
+            <div id="adminClientList" class="admin-list"></div>
+        </div>
+
+        <div id="adminLogins" class="admin-panel">
+            <header class="admin-panel-header">
+                <div><h3>Registo de Logins</h3><p>Vê quem entrou no site e quando.</p></div>
+                <button id="refreshLogins" class="btn btn-secondary" type="button">↻ Atualizar</button>
+            </header>
+            <div id="adminLoginList" class="admin-list"></div>
+        </div>
+
+        <div id="adminHero" class="admin-panel">
+            <header class="admin-panel-header">
+                <div><h3>Imagens</h3><p>Imagem principal e foto do proprietário.</p></div>
+            </header>
+
+            <h4 class="admin-subtitle">Imagem principal (Hero)</h4>
+            <div class="hero-admin-preview">
+                <img id="heroAdminPreview" src="" alt="Pré-visualização" hidden>
+                <span id="heroAdminPlaceholder">🎮 Animação CSS activa (sem imagem)</span>
+            </div>
+            <div class="form-group">
+                <label for="heroImageUrl">URL da imagem</label>
+                <input id="heroImageUrl" type="url" placeholder="https://exemplo.com/pc-gamer.jpg">
+            </div>
+            <div class="form-group">
+                <label for="heroImageFile" class="image-upload-label">Ou escolher uma imagem</label>
+                <input id="heroImageFile" type="file" accept="image/*" class="image-file-input">
+                <div id="heroImagePreview" class="image-preview"></div>
+            </div>
+            <div class="hero-admin-actions">
+                <button id="saveHeroImage" class="btn btn-primary" type="button">Guardar imagem</button>
+                <button id="resetHeroImage" class="btn btn-secondary" type="button">Voltar à animação</button>
+            </div>
+
+            <hr class="admin-divider">
+
+            <h4 class="admin-subtitle">Foto do proprietário</h4>
+            <div class="hero-admin-preview">
+                <img id="ownerAdminPreview" src="" alt="" hidden>
+                <span id="ownerAdminPlaceholder">👤 Sem foto</span>
+            </div>
+            <div class="form-group">
+                <label for="ownerPhotoFile" class="image-upload-label">Escolher foto</label>
+                <input id="ownerPhotoFile" type="file" accept="image/*" class="image-file-input">
+            </div>
+            <div class="hero-admin-actions">
+                <button id="saveOwnerPhoto" class="btn btn-primary" type="button">Guardar foto</button>
+                <button id="resetOwnerPhoto" class="btn btn-secondary" type="button">Remover</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- FORMULÁRIOS ADMIN -->
+<div id="productFormModal" class="modal">
+    <div class="modal-content small-modal">
+        <button id="closeProductForm" class="modal-close">×</button>
+        <header class="modal-section-header"><span class="section-label">ADMIN</span><h2>Produto</h2></header>
+        <form id="productForm">
+            <input type="hidden" id="productId" name="productId">
+            <div class="form-group"><label for="productName">Nome</label><input id="productName" name="productName" required></div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="productCategory">Categoria</label>
+                    <select id="productCategory" name="productCategory" required>
+                        <option value="gaming">Gaming</option>
+                        <option value="notebook">Notebook</option>
+                        <option value="office">Office</option>
+                    </select>
+                </div>
+                <div class="form-group"><label for="productPrice">Preço (Kz)</label><input id="productPrice" name="productPrice" type="number" min="0" required></div>
+            </div>
+            <div class="form-group"><label for="productDescription">Descrição</label><textarea id="productDescription" name="productDescription" rows="4" required></textarea></div>
+            <div class="form-row">
+                <div class="form-group"><label for="productProcessor">Processador</label><input id="productProcessor" name="productProcessor"></div>
+                <div class="form-group"><label for="productRam">RAM</label><input id="productRam" name="productRam"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label for="productStorage">Armazenamento</label><input id="productStorage" name="productStorage"></div>
+                <div class="form-group"><label for="productGpu">GPU</label><input id="productGpu" name="productGpu"></div>
+            </div>
+            <div class="form-group">
+                <label for="productImage">URL da imagem</label>
+                <input id="productImage" name="productImage" type="url">
+                <label for="productImageFile" class="image-upload-label">Ou escolher imagem</label>
+                <input id="productImageFile" type="file" accept="image/*" class="image-file-input">
+                <div id="productImagePreview" class="image-preview"></div>
+            </div>
+            <button class="btn btn-primary" type="submit">Guardar produto</button>
+        </form>
+    </div>
+</div>
+
+<div id="serviceFormModal" class="modal">
+    <div class="modal-content small-modal">
+        <button id="closeServiceForm" class="modal-close">×</button>
+        <header class="modal-section-header"><span class="section-label">ADMIN</span><h2>Serviço</h2></header>
+        <form id="serviceForm">
+            <input type="hidden" id="serviceId" name="serviceId">
+            <div class="form-group"><label for="newServiceName">Nome</label><input id="newServiceName" name="newServiceName" required></div>
+            <div class="form-group"><label for="newServiceDescription">Descrição</label><textarea id="newServiceDescription" name="newServiceDescription" rows="4" required></textarea></div>
+            <div class="form-row">
+                <div class="form-group"><label for="newServicePrice">Preço (Kz)</label><input id="newServicePrice" name="newServicePrice" type="number" min="0" value="0"></div>
+                <div class="form-group"><label for="newServiceIcon">Ícone</label><input id="newServiceIcon" name="newServiceIcon" placeholder="🔧"></div>
+            </div>
+            <div class="form-group">
+                <label for="newServiceImage">URL da imagem</label>
+                <input id="newServiceImage" name="newServiceImage" type="url">
+                <label for="serviceImageFile" class="image-upload-label">Ou escolher imagem</label>
+                <input id="serviceImageFile" type="file" accept="image/*" class="image-file-input">
+                <div id="serviceImagePreview" class="image-preview"></div>
+            </div>
+            <button class="btn btn-primary" type="submit">Guardar</button>
+        </form>
+    </div>
+</div>
+
+<div id="gameFormModal" class="modal">
+    <div class="modal-content small-modal">
+        <button id="closeGameForm" class="modal-close">×</button>
+        <header class="modal-section-header"><span class="section-label">ADMIN</span><h2>Jogo</h2></header>
+        <form id="gameForm">
+            <input type="hidden" id="gameId" name="gameId">
+            <div class="form-group"><label for="gameName">Nome</label><input id="gameName" name="gameName" required></div>
+            <div class="form-group"><label for="gameDescription">Descrição</label><textarea id="gameDescription" name="gameDescription" rows="3" required></textarea></div>
+            <div class="form-row">
+                <div class="form-group"><label for="gamePrice">Preço (Kz)</label><input id="gamePrice" name="gamePrice" type="number" min="0" required></div>
+                <div class="form-group"><label for="gameIcon">Ícone</label><input id="gameIcon" name="gameIcon" placeholder="🎮"></div>
+            </div>
+            <div class="form-group">
+                <label for="gameImage">URL da imagem</label>
+                <input id="gameImage" name="gameImage" type="url">
+                <label for="gameImageFile" class="image-upload-label">Ou escolher imagem</label>
+                <input id="gameImageFile" type="file" accept="image/*" class="image-file-input">
+                <div id="gameImagePreview" class="image-preview"></div>
+            </div>
+            <button class="btn btn-primary" type="submit">Guardar</button>
+        </form>
+    </div>
+</div>
+
+<div id="softwareFormModal" class="modal">
+    <div class="modal-content small-modal">
+        <button id="closeSoftwareForm" class="modal-close">×</button>
+        <header class="modal-section-header"><span class="section-label">ADMIN</span><h2>Programa</h2></header>
+        <form id="softwareForm">
+            <input type="hidden" id="softwareId" name="softwareId">
+            <div class="form-group"><label for="softwareName">Nome</label><input id="softwareName" name="softwareName" required></div>
+            <div class="form-group"><label for="softwareDescription">Descrição</label><textarea id="softwareDescription" name="softwareDescription" rows="3" required></textarea></div>
+            <div class="form-row">
+                <div class="form-group"><label for="softwarePrice">Preço (Kz)</label><input id="softwarePrice" name="softwarePrice" type="number" min="0" required></div>
+                <div class="form-group"><label for="softwareIcon">Ícone</label><input id="softwareIcon" name="softwareIcon" placeholder="📊"></div>
+            </div>
+            <div class="form-group">
+                <label for="softwareImage">URL da imagem</label>
+                <input id="softwareImage" name="softwareImage" type="url">
+                <label for="softwareImageFile" class="image-upload-label">Ou escolher imagem</label>
+                <input id="softwareImageFile" type="file" accept="image/*" class="image-file-input">
+                <div id="softwareImagePreview" class="image-preview"></div>
+            </div>
+            <button class="btn btn-primary" type="submit">Guardar</button>
+        </form>
+    </div>
+</div>
+
+<div id="carouselFormModal" class="modal">
+    <div class="modal-content small-modal">
+        <button id="closeCarouselForm" class="modal-close">×</button>
+        <header class="modal-section-header"><span class="section-label">ADMIN</span><h2>Slide do carrossel</h2></header>
+        <form id="carouselForm">
+            <input type="hidden" id="carouselId" name="carouselId">
+            <div class="form-row">
+                <div class="form-group"><label for="carouselTag">Etiqueta</label><input id="carouselTag" name="carouselTag" placeholder="DESTAQUE" required></div>
+                <div class="form-group"><label for="carouselPrice">Preço (Kz)</label><input id="carouselPrice" name="carouselPrice" type="number" min="0" required></div>
+            </div>
+            <div class="form-group">
+                <label for="carouselTitle">Título</label>
+                <input id="carouselTitle" name="carouselTitle" placeholder="GameStation Ultra" required>
+                <small>Usa &lt;span&gt;palavra&lt;/span&gt; para colorir uma palavra.</small>
+            </div>
+            <div class="form-group"><label for="carouselDescription">Descrição</label><textarea id="carouselDescription" name="carouselDescription" rows="3" required></textarea></div>
+            <div class="form-group">
+                <label for="carouselImage">URL da imagem</label>
+                <input id="carouselImage" name="carouselImage" type="url">
+                <label for="carouselImageFile" class="image-upload-label">Ou escolher imagem</label>
+                <input id="carouselImageFile" type="file" accept="image/*" class="image-file-input">
+                <div id="carouselImagePreview" class="image-preview"></div>
+            </div>
+            <button class="btn btn-primary" type="submit">Guardar slide</button>
+        </form>
+    </div>
+</div>
+
+<div id="adminResetPasswordModal" class="modal">
+    <div class="modal-content small-modal">
+        <button id="closeAdminReset" class="modal-close">×</button>
+        <header class="modal-section-header">
+            <span class="section-label">ADMINISTRADOR</span>
+            <h2>Redefinir senha</h2>
+            <p id="adminResetUserInfo">—</p>
+        </header>
+        <form id="adminResetForm">
+            <input type="hidden" id="adminResetUserId" name="adminResetUserId">
+            <div class="form-group">
+                <label for="adminResetPassword">Nova palavra-passe</label>
+                <input id="adminResetPassword" name="adminResetPassword" type="text" minlength="6" required placeholder="Mínimo 6 caracteres">
+                <small>Será mostrada ao cliente. Podes copiá-la antes de guardar.</small>
+            </div>
+            <button class="btn btn-primary" type="submit">Redefinir senha</button>
+        </form>
+    </div>
+</div>
+
+<div id="appointmentModal" class="modal">
+    <div class="modal-content small-modal">
+        <button id="closeAppointment" class="modal-close">×</button>
+        <header class="modal-section-header">
+            <span class="section-label">SERVIÇO AO DOMICÍLIO</span>
+            <h2>Agendar serviço</h2>
+            <p>Solicita uma visita técnica em casa.</p>
+        </header>
+        <form id="appointmentForm">
+            <div class="form-group"><label for="appointmentName">Nome</label><input id="appointmentName" name="appointmentName" required></div>
+            <div class="form-row">
+                <div class="form-group"><label for="appointmentPhone">Telefone</label><input id="appointmentPhone" name="appointmentPhone" type="tel" required></div>
+                <div class="form-group"><label for="appointmentDate">Data</label><input id="appointmentDate" name="appointmentDate" type="date" required></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label for="appointmentTime">Hora</label><input id="appointmentTime" name="appointmentTime" type="time" required></div>
+                <div class="form-group"><label for="appointmentLocation">Localização</label><input id="appointmentLocation" name="appointmentLocation" required></div>
+            </div>
+            <div class="form-group"><label for="appointmentMessage">Observação</label><textarea id="appointmentMessage" name="appointmentMessage" rows="4"></textarea></div>
+            <button class="btn btn-primary" type="submit">Solicitar →</button>
+        </form>
+    </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast" role="alert">
+    <div class="toast-icon">✓</div>
+    <div class="toast-content">
+        <strong id="toastTitle">Sucesso</strong>
+        <p id="toastMessage">Operação realizada.</p>
+    </div>
+    <button id="toastClose" class="toast-close">×</button>
+</div>
+
+<div id="successAnimation" class="success-animation">
+    <div class="success-particles"><span>✦</span><span>✧</span><span>✦</span><span>✧</span><span>✦</span></div>
+    <div class="success-circle">✓</div>
+    <h2>Pedido confirmado!</h2>
+    <p>Obrigado por comprar na EdZZ-Spot AO.</p>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+# Dependências (cada um instala as suas)
+node_modules/
+package-lock.json
+
+# Dados sensíveis do servidor (NUNCA enviar)
+server/data/
+
+# Ficheiros do Cloudflare
+server/cloudflared*
+server/config.yml
+
+# Logs
+*.log
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
