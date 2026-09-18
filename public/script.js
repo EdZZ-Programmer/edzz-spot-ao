@@ -25,7 +25,7 @@ const STORAGE = {
 };
 
 // ⚠️ Aumenta isto SEMPRE que quiseres forçar reset dos dados em todos os browsers
-const DATA_VERSION = 2;
+const DATA_VERSION = 3;
 
 const IMAGE_CONFIG = { maxWidth: 900, quality: 0.75 };
 
@@ -48,7 +48,26 @@ const DEFAULT_PRODUCTS = [
     { id: 3, name: "OfficeCore Business", category: "office", price: 215000, processor: "Core i5", ram: "16GB RAM", storage: "SSD 512GB", gpu: "Integrada", description: "Computador equilibrado para escritório, estudos, navegação, produtividade e aplicações empresariais.", image: "" },
     { id: 4, name: "GameStation Ultra", category: "gaming", price: 590000, processor: "Ryzen 9", ram: "32GB RAM", storage: "SSD 2TB", gpu: "RTX", description: "Máquina Gaming de alto nível criada para jogadores exigentes, streaming e aplicações pesadas.", image: "" },
     { id: 5, name: "WorkBook Air", category: "notebook", price: 325000, processor: "Core i5", ram: "16GB RAM", storage: "SSD 512GB", gpu: "FHD", description: "Notebook equilibrado, leve e versátil para estudo, programação, trabalho e entretenimento.", image: "" },
-    { id: 6, name: "OfficeCore Mini", category: "office", price: 175000, processor: "Core i3", ram: "8GB RAM", storage: "SSD 256GB", gpu: "Integrada", description: "Computador compacto e económico para tarefas de escritório, estudos e utilização diária.", image: "" }
+        { id: 6, name: "OfficeCore Mini", category: "office", price: 175000, processor: "Core i3", ram: "8GB RAM", storage: "SSD 256GB", gpu: "Integrada", description: "Computador compacto e económico para tarefas de escritório, estudos e utilização diária.", image: "" },
+
+    // 🎮 Periféricos
+    { id: 301, name: "Teclado Mecânico RGB", category: "peripheral", price: 45000, processor: "—", ram: "—", storage: "—", gpu: "—", description: "Teclado mecânico com switches azuis, iluminação RGB personalizável e anti-ghosting.", image: "" },
+    { id: 302, name: "Rato Gaming 12000 DPI", category: "peripheral", price: 22000, processor: "—", ram: "—", storage: "—", gpu: "—", description: "Rato ergonómico com sensor óptico de 12000 DPI e 7 botões programáveis.", image: "" },
+    { id: 303, name: "Headset 7.1 Surround", category: "peripheral", price: 38000, processor: "—", ram: "—", storage: "—", gpu: "—", description: "Headset com som surround 7.1, microfone removível e almofadas confortáveis.", image: "" },
+    { id: 304, name: "Monitor 24\" 144Hz", category: "peripheral", price: 165000, processor: "—", ram: "—", storage: "—", gpu: "—", description: "Monitor IPS Full HD 144Hz com 1ms de resposta, ideal para gaming competitivo.", image: "" },
+    { id: 305, name: "Colunas Bluetooth 2.0", category: "peripheral", price: 28000, processor: "—", ram: "—", storage: "—", gpu: "—", description: "Par de colunas com som estéreo, Bluetooth 5.0 e entrada auxiliar.", image: "" },
+
+    // 🔧 Componentes
+    { id: 401, name: "RAM DDR4 16GB 3200MHz", category: "component", price: 55000, processor: "—", ram: "16GB", storage: "—", gpu: "—", description: "Memória RAM DDR4 16GB 3200MHz CL16, compatível com placas Intel e AMD.", image: "" },
+    { id: 402, name: "SSD NVMe 1TB Gen4", category: "component", price: 78000, processor: "—", ram: "—", storage: "1TB NVMe", gpu: "—", description: "SSD NVMe PCIe Gen4 com leitura até 7000MB/s, ideal para gaming e edição.", image: "" },
+    { id: 403, name: "GPU RTX 4060 8GB", category: "component", price: 385000, processor: "—", ram: "—", storage: "—", gpu: "RTX 4060", description: "Placa gráfica GeForce RTX 4060 com 8GB GDDR6, ray tracing e DLSS 3.", image: "" },
+    { id: 404, name: "Fonte 650W 80+ Bronze", category: "component", price: 62000, processor: "—", ram: "—", storage: "—", gpu: "—", description: "Fonte de alimentação 650W com certificação 80+ Bronze e PFC ativo.", image: "" },
+
+    // 🎒 Extras
+    { id: 501, name: "Mousepad XL Speed", category: "extra", price: 12000, processor: "—", ram: "—", storage: "—", gpu: "—", description: "Mousepad de 900x400mm com superfície speed e base antiderrapante.", image: "" },
+    { id: 502, name: "Suporte para Headset", category: "extra", price: 8500, processor: "—", ram: "—", storage: "—", gpu: "—", description: "Suporte de alumínio para headset com base antiderrapante.", image: "" },
+    { id: 503, name: "Hub USB-C 7-em-1", category: "extra", price: 24000, processor: "—", ram: "—", storage: "—", gpu: "—", description: "Hub USB-C com HDMI 4K, 3x USB 3.0, leitor SD/microSD e PD 100W.", image: "" },
+    { id: 504, name: "Cabo HDMI 2.1 8K 2m", category: "extra", price: 9500, processor: "—", ram: "—", storage: "—", gpu: "—", description: "Cabo HDMI 2.1 com suporte até 8K@60Hz e 4K@120Hz, banhado a ouro.", image: "" }
 ];
 
 const DEFAULT_GAMES = [
@@ -398,6 +417,11 @@ function setupThemeToggle() {
         const light = document.body.classList.contains("light-mode");
         localStorage.setItem(STORAGE.theme, light ? "light" : "dark");
         toggle.textContent = light ? "☀️" : "🌙";
+
+        // Re-renderiza os gráficos com as cores novas
+        if (isAdmin() && typeof renderAdminCharts === "function") {
+            renderAdminCharts(orders);
+        }
     });
 }
 
@@ -957,6 +981,85 @@ function renderServices() {
     });
     observeReveals();
 }
+
+/* ==========================================================
+   18.5 — ACESSÓRIOS
+========================================================== */
+let currentAccessoryTab = "all";
+
+const ACCESSORY_CATEGORIES = {
+    peripheral: "Periférico",
+    component: "Componente",
+    extra: "Extra"
+};
+
+function renderAccessories() {
+    const grid = $("accessoriesGrid");
+    if (!grid) return;
+
+    const list = (products || []).filter(p =>
+        p.category === "peripheral" ||
+        p.category === "component" ||
+        p.category === "extra"
+    );
+
+    const filtered = currentAccessoryTab === "all"
+        ? list
+        : list.filter(p => p.category === currentAccessoryTab);
+
+    if (!filtered.length) {
+        grid.innerHTML = `<div class="empty-result"><h3>Nenhum acessório nesta categoria.</h3><p>Escolhe outra aba ou adiciona produtos no painel admin.</p></div>`;
+        return;
+    }
+
+    grid.innerHTML = filtered.map(accessoryCardTemplate).join("");
+    observeReveals();
+}
+
+function accessoryCardTemplate(product) {
+    const favorite = favorites.includes(product.id);
+    const subLabel = ACCESSORY_CATEGORIES[product.category] || "";
+
+    return `
+        <article class="product-card reveal" data-product-id="${product.id}">
+            <div class="product-image">
+                ${product.image
+                    ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}">`
+                    : `<div class="product-placeholder">🎧</div>`}
+
+                <button class="favorite-button ${favorite ? "active" : ""}"
+                        data-favorite="${product.id}" type="button"
+                        aria-label="Favorito">${favorite ? "♥" : "♡"}</button>
+            </div>
+
+            <div class="product-info">
+                <span class="product-category">${subLabel}</span>
+                <h3>${escapeHtml(product.name)}</h3>
+                <p class="product-description">${escapeHtml(product.description)}</p>
+
+                <div class="product-bottom">
+                    <strong class="product-price">${formatKz(product.price)}</strong>
+                    <div class="product-actions">
+                        <button class="view-product" data-view-product="${product.id}">Detalhes</button>
+                        <button class="add-product" data-add-product="${product.id}">+ Carrinho</button>
+                    </div>
+                </div>
+            </div>
+        </article>
+    `;
+}
+
+function setupAccessoryTabs() {
+    document.querySelectorAll(".accessory-tab").forEach(tab => {
+        tab.addEventListener("click", () => {
+            document.querySelectorAll(".accessory-tab").forEach(t => t.classList.remove("active"));
+            tab.classList.add("active");
+            currentAccessoryTab = tab.dataset.subcategory;
+            renderAccessories();
+        });
+    });
+}
+
 
 /* ==========================================================
    19 — FOTO PROPRIETÁRIO / HERO
@@ -1521,8 +1624,290 @@ async function loadAdminDataFromServer() {
         renderAdminCarousel();
         renderAdminOrdersFromServer(orders);
         updateAdminOrderBadge(orders);
+        renderAdminCharts(orders);
     } catch (err) {
         console.error("Erro a carregar admin:", err);
+    }
+}
+
+/* ==========================================================
+   GRÁFICOS DO ADMIN (Chart.js)
+========================================================== */
+let adminCharts = { sales: null, revenue30: null, topProducts: null, orderStatus: null };
+
+function getChartColors() {
+    const isLight = document.body.classList.contains("light-mode");
+    return {
+        text: isLight ? "#131a24" : "#f5f7ff",
+        muted: isLight ? "#5f6b7a" : "#a9b4c7",
+        grid: isLight ? "rgba(0,0,0,.08)" : "rgba(255,255,255,.08)",
+        primary: "#00d9ff", purple: "#7c3cff", success: "#25d366",
+        warning: "#ffc83c", danger: "#ff5573"
+    };
+}
+
+function destroyAdminCharts() {
+    Object.keys(adminCharts).forEach(k => {
+        if (adminCharts[k]) {
+            try { adminCharts[k].destroy(); } catch { /* ignora */ }
+            adminCharts[k] = null;
+        }
+    });
+}
+
+function getMonthlySales(orders) {
+    const months = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+    const year = new Date().getFullYear();
+    const totals = new Array(12).fill(0);
+    orders.forEach(o => {
+        const d = new Date(o.date);
+        if (d.getFullYear() === year) totals[d.getMonth()] += Number(o.total) || 0;
+    });
+    return { labels: months, data: totals };
+}
+
+function getLast30DaysRevenue(orders) {
+    const labels = [];
+    const data = [];
+    const today = new Date();
+    today.setHours(23,59,59,999);
+
+    for (let i = 29; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const dayStart = new Date(d); dayStart.setHours(0,0,0,0);
+        const dayEnd = new Date(d); dayEnd.setHours(23,59,59,999);
+
+        const total = orders
+            .filter(o => {
+                const od = new Date(o.date);
+                return od >= dayStart && od <= dayEnd;
+            })
+            .reduce((s, o) => s + (Number(o.total) || 0), 0);
+
+        labels.push(String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0"));
+        data.push(total);
+    }
+    return { labels, data };
+}
+
+function getTopProducts(orders) {
+    const counts = {};
+    orders.forEach(o => {
+        (o.items || []).forEach(item => {
+            const key = item.name || "Sem nome";
+            counts[key] = (counts[key] || 0) + (item.quantity || 1);
+        });
+    });
+    const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 5);
+    return {
+        labels: sorted.map(([n]) => n.length > 20 ? n.slice(0,18) + "…" : n),
+        data: sorted.map(([,c]) => c)
+    };
+}
+
+function getOrderStatusCounts(orders) {
+    const statuses = ["Pendente","Confirmado","Enviado","Entregue","Cancelado"];
+    const colors = {
+        "Pendente":"#ffc83c", "Confirmado":"#4da6ff",
+        "Enviado":"#b57bff", "Entregue":"#25d366", "Cancelado":"#ff5573"
+    };
+    return {
+        labels: statuses,
+        data: statuses.map(s => orders.filter(o => (o.status || "Pendente") === s).length),
+        colors: statuses.map(s => colors[s])
+    };
+}
+
+function renderAdminCharts(ordersFromServer) {
+    if (typeof Chart === "undefined") {
+        console.warn("⚠️ Chart.js não carregado — gráficos ignorados");
+        return;
+    }
+    const orders = Array.isArray(ordersFromServer) ? ordersFromServer : [];
+    const c = getChartColors();
+    destroyAdminCharts();
+
+    /* ---- 1) Vendas por mês ---- */
+    const salesCanvas = $("chartSales");
+    if (salesCanvas) {
+        const sales = getMonthlySales(orders);
+        const total = sales.data.reduce((s,v) => s + v, 0);
+        setText("chartSalesTotal", formatKz(total));
+
+        const grad = salesCanvas.getContext("2d").createLinearGradient(0, 0, 0, 240);
+        grad.addColorStop(0, "rgba(0,217,255,.35)");
+        grad.addColorStop(1, "rgba(0,217,255,0)");
+
+        adminCharts.sales = new Chart(salesCanvas, {
+            type: "line",
+            data: {
+                labels: sales.labels,
+                datasets: [{
+                    data: sales.data,
+                    borderColor: c.primary,
+                    backgroundColor: grad,
+                    borderWidth: 3, tension: 0.4, fill: true,
+                    pointBackgroundColor: c.primary,
+                    pointBorderColor: "#001018",
+                    pointBorderWidth: 2,
+                    pointRadius: 4, pointHoverRadius: 7
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: "#101827", titleColor: c.primary,
+                        bodyColor: c.text, borderColor: c.primary, borderWidth: 1, padding: 10,
+                        callbacks: { label: ctx => formatKz(ctx.parsed.y) }
+                    }
+                },
+                scales: {
+                    x: { ticks: { color: c.muted, font: { size: 11 } }, grid: { color: c.grid } },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            color: c.muted, font: { size: 11 },
+                            callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+"M" : v >= 1e3 ? (v/1e3).toFixed(0)+"k" : v
+                        },
+                        grid: { color: c.grid }
+                    }
+                }
+            }
+        });
+    }
+
+    /* ---- 2) Receita últimos 30 dias ---- */
+    const rev30Canvas = $("chartRevenue30");
+    if (rev30Canvas) {
+        const rev = getLast30DaysRevenue(orders);
+        const total = rev.data.reduce((s,v) => s + v, 0);
+        setText("chartRevenue30Total", formatKz(total));
+
+        adminCharts.revenue30 = new Chart(rev30Canvas, {
+            type: "bar",
+            data: {
+                labels: rev.labels,
+                datasets: [{
+                    data: rev.data,
+                    backgroundColor: c.purple,
+                    borderRadius: 4,
+                    barPercentage: 0.75
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: "#101827", titleColor: c.purple,
+                        bodyColor: c.text, borderColor: c.purple, borderWidth: 1, padding: 10,
+                        callbacks: { label: ctx => formatKz(ctx.parsed.y) }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: c.muted, font: { size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
+                        grid: { display: false }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            color: c.muted, font: { size: 11 },
+                            callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+"M" : v >= 1e3 ? (v/1e3).toFixed(0)+"k" : v
+                        },
+                        grid: { color: c.grid }
+                    }
+                }
+            }
+        });
+    }
+
+    /* ---- 3) Top 5 produtos ---- */
+    const topCanvas = $("chartTopProducts");
+    if (topCanvas) {
+        const top = getTopProducts(orders);
+        if (!top.labels.length) {
+            topCanvas.parentElement.innerHTML =
+                `<div style="display:grid;place-items:center;height:100%;color:var(--muted);font-size:.85rem;text-align:center;">Sem vendas ainda.<br>Os produtos mais vendidos aparecerão aqui.</div>`;
+        } else {
+            const palette = [c.primary, c.purple, c.success, c.warning, c.danger];
+            adminCharts.topProducts = new Chart(topCanvas, {
+                type: "doughnut",
+                data: {
+                    labels: top.labels,
+                    datasets: [{
+                        data: top.data,
+                        backgroundColor: palette,
+                        borderColor: "rgba(0,0,0,.15)",
+                        borderWidth: 2, hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, cutout: "62%",
+                    plugins: {
+                        legend: {
+                            position: "bottom",
+                            labels: { color: c.muted, font: { size: 11 }, padding: 10, boxWidth: 12, boxHeight: 12, usePointStyle: true }
+                        },
+                        tooltip: {
+                            backgroundColor: "#101827", titleColor: c.primary,
+                            bodyColor: c.text, borderColor: c.primary, borderWidth: 1, padding: 10,
+                            callbacks: {
+                                label: ctx => {
+                                    const t = ctx.dataset.data.reduce((s,v) => s + v, 0);
+                                    const pct = t ? Math.round((ctx.parsed / t) * 100) : 0;
+                                    return `${ctx.label}: ${ctx.parsed} (${pct}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    /* ---- 4) Pedidos por estado ---- */
+    const stCanvas = $("chartOrderStatus");
+    if (stCanvas) {
+        const st = getOrderStatusCounts(orders);
+        adminCharts.orderStatus = new Chart(stCanvas, {
+            type: "bar",
+            data: {
+                labels: st.labels,
+                datasets: [{
+                    data: st.data,
+                    backgroundColor: st.colors,
+                    borderRadius: 8,
+                    barThickness: 26
+                }]
+            },
+            options: {
+                indexAxis: "y",
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: "#101827", titleColor: c.primary,
+                        bodyColor: c.text, borderColor: c.primary, borderWidth: 1, padding: 10,
+                        callbacks: { label: ctx => `${ctx.parsed.x} pedido${ctx.parsed.x === 1 ? "" : "s"}` }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: { color: c.muted, font: { size: 11 }, stepSize: 1, precision: 0 },
+                        grid: { color: c.grid }
+                    },
+                    y: {
+                        ticks: { color: c.text, font: { size: 11, weight: "600" } },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
     }
 }
 
@@ -3063,6 +3448,8 @@ function initialize() {
     safeCall("renderServices", renderServices);
     safeCall("renderGames", renderGames);
     safeCall("renderSoftware", renderSoftware);
+    safeCall("renderAccessories", renderAccessories);
+    safeCall("setupAccessoryTabs", setupAccessoryTabs);
     safeCall("renderCarousel", renderCarousel);
     safeCall("renderComments", renderComments);
     safeCall("loadOwnerPhoto", loadOwnerPhoto);
@@ -3147,6 +3534,7 @@ async function boot() {
         safeCall("renderGames (sync)", renderGames);
         safeCall("renderSoftware (sync)", renderSoftware);
         safeCall("renderServices (sync)", renderServices);
+        safeCall("renderAccessories (sync)", renderAccessories);
         safeCall("renderCarousel (sync)", renderCarousel);
     } catch (err) {
         console.warn("⚠️ Sync falhou ou timeout — a usar dados locais:", err.message);

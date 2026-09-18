@@ -616,6 +616,77 @@ body.light-mode .toast { background: #ffffff; }
     .toast { right: 16px; bottom: 90px; }
 }
 
+/* ==========================================================
+   ADMIN — GRÁFICOS
+========================================================== */
+.admin-charts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.admin-chart-card {
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: rgba(255,255,255,.02);
+    transition: var(--tr);
+}
+.admin-chart-card:hover { border-color: var(--primary-border); }
+.admin-chart-header {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+}
+.admin-chart-header h4 {
+    font-size: .95rem; font-family: Orbitron, sans-serif;
+    color: var(--text); margin: 0;
+}
+.admin-chart-badge {
+    padding: 4px 10px; border-radius: 99px;
+    background: var(--primary-soft); color: var(--primary);
+    font-size: .72rem; font-weight: 800;
+    font-family: Orbitron, sans-serif;
+}
+.admin-chart-canvas-wrap {
+    position: relative; height: 240px; width: 100%;
+}
+@media (max-width: 900px) {
+    .admin-charts { grid-template-columns: 1fr; }
+}
+
+/* ==========================================================
+   ACESSÓRIOS — Sub-tabs
+========================================================== */
+.accessory-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+.accessory-tab {
+    padding: 10px 18px;
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    background: rgba(255,255,255,.03);
+    color: var(--muted);
+    font-size: .85rem;
+    font-weight: 700;
+    transition: var(--tr);
+    white-space: nowrap;
+}
+.accessory-tab:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-2px);
+}
+.accessory-tab.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #001018;
+    box-shadow: 0 8px 20px rgba(0,217,255,.25);
+}
+
 /* IMPRESSÃO */
 @media print {
     body > *:not(#invoiceModal) { display: none !important; }

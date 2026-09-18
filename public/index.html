@@ -43,6 +43,7 @@
             <a href="#servicos" class="nav-link">Serviços</a>
             <a href="#jogos" class="nav-link">Jogos</a>
             <a href="#programas" class="nav-link">Programas</a>
+            <a href="#acessorios" class="nav-link">Acessórios</a>
             <a href="#avaliacoes" class="nav-link">Avaliações</a>
             <a href="#sobre" class="nav-link">Sobre</a>
             <a href="#contacto" class="nav-link">Contacto</a>
@@ -191,7 +192,27 @@
             <h2>As ferramentas <span>certas</span></h2>
             <p>Programas para trabalho, estudo e produtividade.</p>
         </header>
-        <div id="softwareGrid" class="software-grid"></div>
+                <div id="softwareGrid" class="software-grid"></div>
+    </div>
+</section>
+
+<!-- ACESSÓRIOS -->
+<section id="acessorios" class="accessories-section section">
+    <div class="container">
+        <header class="section-heading reveal">
+            <span class="section-label">ACESSÓRIOS</span>
+            <h2>Complementa o teu <span>setup</span></h2>
+            <p>Periféricos, componentes e extras para completar a tua máquina.</p>
+        </header>
+
+        <div class="accessory-tabs">
+            <button class="accessory-tab active" data-subcategory="all">Todos</button>
+            <button class="accessory-tab" data-subcategory="peripheral">🎮 Periféricos</button>
+            <button class="accessory-tab" data-subcategory="component">🔧 Componentes</button>
+            <button class="accessory-tab" data-subcategory="extra">🎒 Extras</button>
+        </div>
+
+        <div id="accessoriesGrid" class="products-grid"></div>
     </div>
 </section>
 
@@ -644,6 +665,38 @@
             </div>
         </header>
 
+        <div class="admin-charts">
+            <div class="admin-chart-card">
+                <div class="admin-chart-header">
+                    <h4>📈 Vendas por mês</h4>
+                    <span id="chartSalesTotal" class="admin-chart-badge">0 Kz</span>
+                </div>
+                <div class="admin-chart-canvas-wrap"><canvas id="chartSales"></canvas></div>
+            </div>
+
+            <div class="admin-chart-card">
+                <div class="admin-chart-header">
+                    <h4>💰 Receita últimos 30 dias</h4>
+                    <span id="chartRevenue30Total" class="admin-chart-badge">0 Kz</span>
+                </div>
+                <div class="admin-chart-canvas-wrap"><canvas id="chartRevenue30"></canvas></div>
+            </div>
+
+            <div class="admin-chart-card">
+                <div class="admin-chart-header">
+                    <h4>🏆 Top 5 produtos vendidos</h4>
+                </div>
+                <div class="admin-chart-canvas-wrap"><canvas id="chartTopProducts"></canvas></div>
+            </div>
+
+            <div class="admin-chart-card">
+                <div class="admin-chart-header">
+                    <h4>📦 Pedidos por estado</h4>
+                </div>
+                <div class="admin-chart-canvas-wrap"><canvas id="chartOrderStatus"></canvas></div>
+            </div>
+        </div>
+
         <div class="admin-grid">
             <div class="admin-stat"><span>📦</span><strong id="adminProductCount">0</strong><small>Produtos</small></div>
             <div class="admin-stat"><span>🛒</span><strong id="adminOrderCount">0</strong><small>Pedidos</small></div>
@@ -797,6 +850,9 @@
                         <option value="gaming">Gaming</option>
                         <option value="notebook">Notebook</option>
                         <option value="office">Office</option>
+                        <option value="peripheral">🎮 Periférico</option>
+                        <option value="component">🔧 Componente</option>
+                        <option value="extra">🎒 Extra</option>
                     </select>
                 </div>
                 <div class="form-group"><label for="productPrice">Preço (Kz)</label><input id="productPrice" name="productPrice" type="number" min="0" required></div>
@@ -983,6 +1039,7 @@
     <p>Obrigado por comprar na EdZZ-Spot AO.</p>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
