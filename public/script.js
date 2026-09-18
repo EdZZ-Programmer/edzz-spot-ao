@@ -156,6 +156,10 @@ let comments       = [];
 
 let currentFilter = "all";
 let currentSearch = "";
+let currentSort = "relevance";
+let currentPriceFilter = "all";
+let currentProcessorFilter = "all";
+let currentRamFilter = "all";
 
 let carouselIndex = 0;
 let carouselInterval = null;
@@ -517,27 +521,137 @@ function updateOpenStatus() {
 /* ==========================================================
    14 — PRODUTOS
 ========================================================== */
+/* Categorias de "computadores" (exclui acessórios) */
+const COMPUTER_CATEGORIES = ["gaming", "notebook", "office"];
+
+function filterAndSortProducts() {
+    if (!Array.isArray(products)) products = [...DEFAULT_PRODUCTS];
+
+    // 1. Só computadores nesta secção
+    let list = products.filter(p => COMPUTER_CATEGORIES.includes(p.category));
+
+    // 2. Categoria
+    if (currentFilter !== "all") {
+        list = list.filter(p => p.category === currentFilter);
+    }
+
+    // 3. Preço
+    if (currentPriceFilter !== "all") {
+        const [min, max] = currentPriceFilter.split("-").map(Number);
+        list = list.filter(p => Number(p.price) >= min && Number(p.price) <= max);
+    }
+
+    // 4. Processador
+    if (currentProcessorFilter !== "all") {
+        list = list.filter(p => (p.processor || "").trim() === currentProcessorFilter);
+    }
+
+    // 5. RAM
+    if (currentRamFilter !== "all") {
+        list = list.filter(p => (p.ram || "").trim() === currentRamFilter);
+    }
+
+    // 6. Pesquisa
+    const search = currentSearch.toLowerCase().trim();
+    if (search) {
+        list = list.filter(p =>
+            [p.name, p.description, p.processor, p.ram, p.storage, p.gpu, getCategoryName(p.category)]
+                .some(f => (f || "").toLowerCase().includes(search))
+        );
+    }
+
+    // 7. Ordenação
+    switch (currentSort) {
+        case "price-asc":
+            list.sort((a, b) => Number(a.price) - Number(b.price));
+            break;
+        case "price-desc":
+            list.sort((a, b) => Number(b.price) - Number(a.price));
+            break;
+        case "name":
+            list.sort((a, b) => String(a.name).localeCompare(String(b.name), "pt"));
+            break;
+        // "relevance" → mantém ordem original
+    }
+
+    return list;
+}
+
 function renderProducts() {
     const grid = $("productsGrid");
     if (!grid) return;
-    if (!Array.isArray(products)) products = [...DEFAULT_PRODUCTS];
 
-    const search = currentSearch.toLowerCase().trim();
-    const filtered = products.filter(p => {
-        const categoryOk = currentFilter === "all" || p.category === currentFilter;
-        const searchOk = !search || [
-            p.name, p.description, p.processor, p.ram, p.storage, p.gpu,
-            getCategoryName(p.category)
-        ].some(f => (f || "").toLowerCase().includes(search));
-        return categoryOk && searchOk;
-    });
+    const filtered = filterAndSortProducts();
+
+    // Atualiza contador + breadcrumb
+    setText("resultsCount", filtered.length);
+    setText("breadcrumbCategory",
+        currentFilter === "all"
+            ? "Todos"
+            : getCategoryName(currentFilter)
+    );
 
     if (!filtered.length) {
-        grid.innerHTML = `<div class="empty-result"><h3>Nenhum produto encontrado.</h3><p>Tenta outra pesquisa ou categoria.</p></div>`;
+        grid.innerHTML = `<div class="empty-result">
+            <h3>Nenhum produto encontrado.</h3>
+            <p>Tenta ajustar os filtros ou a pesquisa.</p>
+        </div>`;
         return;
     }
+
     grid.innerHTML = filtered.map(productCardTemplate).join("");
     observeReveals();
+}
+
+/* Constrói dinamicamente as opções de processador e RAM */
+function buildDynamicFilterOptions() {
+    const computers = (products || []).filter(p => COMPUTER_CATEGORIES.includes(p.category));
+
+    // Processadores únicos
+    const processors = [...new Set(
+        computers.map(p => (p.processor || "").trim())
+            .filter(v => v && v !== "—" && v !== "Não informado")
+    )].sort();
+
+    // RAMs únicas
+    const rams = [...new Set(
+        computers.map(p => (p.ram || "").trim())
+            .filter(v => v && v !== "—" && v !== "Não informado")
+    )].sort();
+
+    // Processador
+    const procEl = $("processorOptions");
+    if (procEl) {
+        procEl.innerHTML = `
+            <label class="filter-option">
+                <input type="radio" name="f-processor" value="all" checked>
+                <span>Todos</span>
+            </label>
+            ${processors.map(proc => `
+                <label class="filter-option">
+                    <input type="radio" name="f-processor" value="${escapeHtml(proc)}">
+                    <span>${escapeHtml(proc)}</span>
+                </label>
+            `).join("")}
+        `;
+    }
+
+    // RAM
+    const ramEl = $("ramOptions");
+    if (ramEl) {
+        ramEl.innerHTML = `
+            <label class="filter-option">
+                <input type="radio" name="f-ram" value="all" checked>
+                <span>Todas</span>
+            </label>
+            ${rams.map(r => `
+                <label class="filter-option">
+                    <input type="radio" name="f-ram" value="${escapeHtml(r)}">
+                    <span>${escapeHtml(r)}</span>
+                </label>
+            `).join("")}
+        `;
+    }
 }
 
 function productCardTemplate(product) {
@@ -575,26 +689,103 @@ function productCardTemplate(product) {
 }
 
 function setupFilters() {
-    document.querySelectorAll(".filter-button").forEach(btn => {
-        btn.addEventListener("click", () => {
-            document.querySelectorAll(".filter-button").forEach(b => b.classList.remove("active"));
-            btn.classList.add("active");
-            currentFilter = btn.dataset.filter;
+    // Constrói opções dinâmicas primeiro
+    buildDynamicFilterOptions();
+
+    // ---- Categoria (radio) ----
+    document.querySelectorAll('input[name="f-category"]').forEach(radio => {
+        radio.addEventListener("change", () => {
+            if (!radio.checked) return;
+            currentFilter = radio.value;
             renderProducts();
         });
     });
+
+    // ---- Preço (chips) ----
+    document.querySelectorAll(".filter-chip[data-price]").forEach(chip => {
+        chip.addEventListener("click", () => {
+            document.querySelectorAll(".filter-chip[data-price]").forEach(c => c.classList.remove("active"));
+            chip.classList.add("active");
+            currentPriceFilter = chip.dataset.price;
+            renderProducts();
+        });
+    });
+
+    // ---- Processador (radio, delegado) ----
+    document.addEventListener("change", e => {
+        if (e.target.name === "f-processor" && e.target.checked) {
+            currentProcessorFilter = e.target.value;
+            renderProducts();
+        }
+        if (e.target.name === "f-ram" && e.target.checked) {
+            currentRamFilter = e.target.value;
+            renderProducts();
+        }
+    });
+
+    // ---- Ordenação ----
+    $("sortSelect")?.addEventListener("change", e => {
+        currentSort = e.target.value;
+        renderProducts();
+    });
+
+    // ---- Pesquisa ----
     $("productSearch")?.addEventListener("input", e => {
         currentSearch = e.target.value;
         renderProducts();
     });
+
+    // ---- Limpar filtros ----
+    $("clearFilters")?.addEventListener("click", () => {
+        currentFilter = "all";
+        currentPriceFilter = "all";
+        currentProcessorFilter = "all";
+        currentRamFilter = "all";
+        currentSearch = "";
+        currentSort = "relevance";
+
+        // Reset visual
+        document.querySelector('input[name="f-category"][value="all"]').checked = true;
+        document.querySelector('input[name="f-processor"][value="all"]').checked = true;
+        document.querySelector('input[name="f-ram"][value="all"]').checked = true;
+        document.querySelectorAll(".filter-chip").forEach(c =>
+            c.classList.toggle("active", c.dataset.price === "all")
+        );
+        if ($("productSearch")) $("productSearch").value = "";
+        if ($("sortSelect")) $("sortSelect").value = "relevance";
+
+        renderProducts();
+        showToast("Filtros", "Todos os filtros foram limpos.");
+    });
+
+    // ---- Sidebar mobile ----
+    $("openSidebar")?.addEventListener("click", () => {
+        $("shopSidebar")?.classList.add("active");
+        document.body.classList.add("sidebar-open");
+    });
+    $("closeSidebar")?.addEventListener("click", closeSidebar);
+    document.addEventListener("click", e => {
+        if (document.body.classList.contains("sidebar-open") &&
+            !e.target.closest("#shopSidebar") &&
+            !e.target.closest("#openSidebar")) {
+            closeSidebar();
+        }
+    });
+}
+
+function closeSidebar() {
+    $("shopSidebar")?.classList.remove("active");
+    document.body.classList.remove("sidebar-open");
 }
 
 function setupProductClickHandlers() {
     document.addEventListener("click", e => {
-        const addBtn   = e.target.closest("[data-add-product]");
-        const viewBtn  = e.target.closest("[data-view-product]");
-        const favBtn   = e.target.closest("[data-favorite]");
-        const modalAdd = e.target.closest("[data-modal-add]");
+        const addBtn      = e.target.closest("[data-add-product]");
+        const viewBtn     = e.target.closest("[data-view-product]");
+        const favBtn      = e.target.closest("[data-favorite]");
+        const modalAdd    = e.target.closest("[data-modal-add]");
+        const viewGame    = e.target.closest("[data-view-game]");
+        const modalAddGame = e.target.closest("[data-modal-add-game]");
 
         if (addBtn)   addToCart(Number(addBtn.dataset.addProduct), "product");
         if (viewBtn)  openProduct(Number(viewBtn.dataset.viewProduct));
@@ -603,7 +794,55 @@ function setupProductClickHandlers() {
             addToCart(Number(modalAdd.dataset.modalAdd), "product");
             closeModal("productModal");
         }
+        if (viewGame) openGame(Number(viewGame.dataset.viewGame));
+        if (modalAddGame) {
+            addToCart(Number(modalAddGame.dataset.modalAddGame), "game");
+            closeModal("productModal");
+        }
     });
+}
+
+function openGame(id) {
+    const game = games.find(g => g.id === id);
+    if (!game) return;
+
+    const container = $("productModalContent");
+    if (!container) return;
+
+    const favorite = favorites.includes(game.id);
+
+    container.innerHTML = `
+        <div class="product-detail">
+            <div class="product-detail-image">
+                ${game.image
+                    ? `<img src="${escapeHtml(game.image)}" alt="${escapeHtml(game.name)}">`
+                    : `<div class="product-placeholder">${game.icon || "🎮"}</div>`}
+            </div>
+            <div>
+                <span class="section-label">Jogo</span>
+                <h2>${escapeHtml(game.name)}</h2>
+                <p class="product-detail-description">${escapeHtml(game.description)}</p>
+                <strong class="product-detail-price">${formatKz(game.price)}</strong>
+
+                <div class="detail-specs">
+                    <div class="detail-spec"><strong>Plataforma</strong><br>PC / Steam</div>
+                    <div class="detail-spec"><strong>Ativação</strong><br>Digital</div>
+                    <div class="detail-spec"><strong>Entrega</strong><br>Imediata</div>
+                    <div class="detail-spec"><strong>Suporte</strong><br>Permanente</div>
+                </div>
+
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn btn-primary" data-modal-add-game="${game.id}">
+                        Adicionar ao carrinho →
+                    </button>
+                    <button class="btn btn-secondary" data-favorite="${game.id}" type="button">
+                        ${favorite ? "♥ Nos favoritos" : "♡ Guardar"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    openModal("productModal");
 }
 
 function openProduct(id) {
@@ -2170,7 +2409,9 @@ function setupProductAdmin() {
         }
 
         saveData(STORAGE.products, products);
+        buildDynamicFilterOptions();
         renderProducts();
+        renderAccessories();
         renderAdmin();
         closeModal("productFormModal");
     });
@@ -2209,7 +2450,9 @@ function deleteProduct(id) {
     if (!p || !confirm(`Eliminar "${p.name}"?`)) return;
     products = products.filter(x => x.id !== id);
     saveData(STORAGE.products, products);
+    buildDynamicFilterOptions();
     renderProducts();
+    renderAccessories();
     renderAdmin();
     showToast("Produto eliminado", `${p.name} foi removido.`);
 }
@@ -2958,7 +3201,10 @@ function renderGames() {
             <p>${escapeHtml(g.description)}</p>
             <div class="card-bottom">
                 <strong class="card-price">${formatKz(g.price)}</strong>
-                <button class="card-add-btn" data-add-game="${g.id}">+ Carrinho</button>
+                <div style="display:flex;gap:6px;">
+                    <button class="view-product" data-view-game="${g.id}">Detalhes</button>
+                    <button class="card-add-btn" data-add-game="${g.id}">+ Carrinho</button>
+                </div>
             </div>
         </article>
         `;

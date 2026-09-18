@@ -139,24 +139,114 @@
 <!-- COMPUTADORES -->
 <section id="computadores" class="products-section section">
     <div class="container">
+
+        <nav class="breadcrumbs" aria-label="Navegação">
+            <a href="#inicio">Início</a>
+            <span class="breadcrumb-sep">›</span>
+            <a href="#computadores">Computadores</a>
+            <span class="breadcrumb-sep">›</span>
+            <span class="breadcrumb-current" id="breadcrumbCategory">Todos</span>
+        </nav>
+
         <header class="section-heading reveal">
             <span class="section-label">EQUIPAMENTOS</span>
             <h2>Encontra o teu <span>próximo PC</span></h2>
             <p>Escolhe entre máquinas Gaming, notebooks e computadores para escritório.</p>
         </header>
-        <div class="shop-toolbar">
-            <div class="product-filters">
-                <button class="filter-button active" data-filter="all">Todos</button>
-                <button class="filter-button" data-filter="gaming">Gaming</button>
-                <button class="filter-button" data-filter="notebook">Notebooks</button>
-                <button class="filter-button" data-filter="office">Office</button>
+
+        <div class="shop-layout">
+
+            <!-- SIDEBAR DE FILTROS -->
+            <aside class="shop-sidebar" id="shopSidebar">
+                <div class="shop-sidebar-header">
+                    <h3>Filtros</h3>
+                    <button id="closeSidebar" class="shop-sidebar-close" type="button" aria-label="Fechar">×</button>
+                </div>
+
+                <div class="filter-group">
+                    <h4>Categoria</h4>
+                    <div class="filter-options" data-filter-group="category">
+                        <label class="filter-option">
+                            <input type="radio" name="f-category" value="all" checked>
+                            <span>Todos</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="f-category" value="gaming">
+                            <span>🎮 Gaming</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="f-category" value="notebook">
+                            <span>💻 Notebooks</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="f-category" value="office">
+                            <span>🖥️ Office</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <h4>Preço</h4>
+                    <div class="filter-options filter-options--chips" data-filter-group="price">
+                        <button class="filter-chip active" data-price="all">Todos</button>
+                        <button class="filter-chip" data-price="0-100000">&lt; 100k</button>
+                        <button class="filter-chip" data-price="100000-300000">100k – 300k</button>
+                        <button class="filter-chip" data-price="300000-500000">300k – 500k</button>
+                        <button class="filter-chip" data-price="500000-999999999">&gt; 500k</button>
+                    </div>
+                </div>
+
+                <div class="filter-group" id="filterProcessorGroup">
+                    <h4>Processador</h4>
+                    <div class="filter-options" data-filter-group="processor" id="processorOptions">
+                        <!-- Preenchido por JS -->
+                    </div>
+                </div>
+
+                <div class="filter-group" id="filterRamGroup">
+                    <h4>Memória RAM</h4>
+                    <div class="filter-options" data-filter-group="ram" id="ramOptions">
+                        <!-- Preenchido por JS -->
+                    </div>
+                </div>
+
+                <button id="clearFilters" class="btn btn-secondary clear-filters-btn" type="button">
+                    ✕ Limpar filtros
+                </button>
+            </aside>
+
+            <!-- ÁREA PRINCIPAL -->
+            <div class="shop-main">
+
+                <div class="shop-toolbar">
+                    <button id="openSidebar" class="open-sidebar-btn" type="button">
+                        <span>⚙️</span> Filtros
+                    </button>
+
+                    <div class="search-box">
+                        <span aria-hidden="true">🔎</span>
+                        <input id="productSearch" type="search" placeholder="Pesquisar produtos...">
+                    </div>
+
+                    <div class="shop-sort">
+                        <label for="sortSelect">Ordenar:</label>
+                        <select id="sortSelect">
+                            <option value="relevance">Relevância</option>
+                            <option value="price-asc">Preço: menor → maior</option>
+                            <option value="price-desc">Preço: maior → menor</option>
+                            <option value="name">Nome (A-Z)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="shop-results-count">
+                    <span id="resultsCount">0</span> produtos encontrados
+                </div>
+
+                <div id="productsGrid" class="products-grid"></div>
             </div>
-            <div class="search-box">
-                <span aria-hidden="true">🔎</span>
-                <input id="productSearch" type="search" placeholder="Pesquisar produtos...">
-            </div>
+
         </div>
-        <div id="productsGrid" class="products-grid"></div>
     </div>
 </section>
 
