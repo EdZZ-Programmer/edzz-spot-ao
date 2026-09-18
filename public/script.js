@@ -798,8 +798,56 @@ function setupProductClickHandlers() {
         if (modalAddGame) {
             addToCart(Number(modalAddGame.dataset.modalAddGame), "game");
             closeModal("productModal");
+                const modalAddSoftware = e.target.closest("[data-modal-add-software]");
+        if (modalAddSoftware) {
+            addToCart(Number(modalAddSoftware.dataset.modalAddSoftware), "software");
+            closeModal("productModal");
+        }
         }
     });
+}
+
+function openSoftware(id) {
+    const sw = software.find(s => s.id === id);
+    if (!sw) return;
+
+    const container = $("productModalContent");
+    if (!container) return;
+
+    const favorite = favorites.includes(sw.id);
+
+    container.innerHTML = `
+        <div class="product-detail">
+            <div class="product-detail-image">
+                ${sw.image
+                    ? `<img src="${escapeHtml(sw.image)}" alt="${escapeHtml(sw.name)}">`
+                    : `<div class="product-placeholder">${sw.icon || "📊"}</div>`}
+            </div>
+            <div>
+                <span class="section-label">Programa</span>
+                <h2>${escapeHtml(sw.name)}</h2>
+                <p class="product-detail-description">${escapeHtml(sw.description)}</p>
+                <strong class="product-detail-price">${formatKz(sw.price)}</strong>
+
+                <div class="detail-specs">
+                    <div class="detail-spec"><strong>Tipo</strong><br>Licença digital</div>
+                    <div class="detail-spec"><strong>Entrega</strong><br>Imediata</div>
+                    <div class="detail-spec"><strong>Ativação</strong><br>Chave / Download</div>
+                    <div class="detail-spec"><strong>Suporte</strong><br>Incluído</div>
+                </div>
+
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn btn-primary" data-modal-add-software="${sw.id}">
+                        Adicionar ao carrinho →
+                    </button>
+                    <button class="btn btn-secondary" data-favorite="${sw.id}" type="button">
+                        ${favorite ? "♥ Nos favoritos" : "♡ Guardar"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    openModal("productModal");
 }
 
 function openGame(id) {
@@ -3653,6 +3701,208 @@ function ensureDefaults() {
 }
 
 /* ==========================================================
+   31.8 — PESQUISA GLOBAL
+========================================================== */
+let globalSearchFilter = "all";
+
+function detectItemType(item) {
+    if (!item || !item.id) return null;
+
+    if (products.some(p => p.id === item.id)) {
+        const p = products.find(p => p.id === item.id);
+        if (p.category === "peripheral" || p.category === "component" || p.category === "extra") {
+            return "accessory";
+        }
+        return "product";
+    }
+    if (games.some(g => g.id === item.id))    return "game";
+    if (software.some(s => s.id === item.id)) return "software";
+    return null;
+}
+
+function getAllSearchableItems() {
+    const map = (arr, type, label) => arr.map(item => ({
+        ...item,
+        _type: type,
+        _label: label
+    }));
+
+    return [
+        ...map(products.filter(p => ["gaming", "notebook", "office"].includes(p.category)), "product", "Computador"),
+        ...map(products.filter(p => ["peripheral", "component", "extra"].includes(p.category)), "accessory", "Acessório"),
+        ...map(games, "game", "Jogo"),
+        ...map(software, "software", "Programa")
+    ];
+}
+
+function highlightMatch(text, query) {
+    const safe = escapeHtml(text || "");
+    if (!query) return safe;
+    const safeQuery = escapeHtml(query).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return safe.replace(new RegExp(`(${safeQuery})`, "gi"), "<mark>$1</mark>");
+}
+
+function performGlobalSearch(query) {
+    const q = String(query || "").toLowerCase().trim();
+    if (!q) return [];
+
+    return getAllSearchableItems().filter(item => {
+        // Filtro de tipo
+        if (globalSearchFilter !== "all" && item._type !== globalSearchFilter) return false;
+
+        // Pesquisa em todos os campos relevantes
+        const haystack = [
+            item.name,
+            item.description,
+            item.processor,
+            item.ram,
+            item.storage,
+            item.gpu,
+            item._label
+        ].map(v => String(v || "").toLowerCase()).join(" ");
+
+        return haystack.includes(q);
+    }).slice(0, 30);
+}
+
+function renderGlobalSearchResults(query) {
+    const container = $("globalSearchResults");
+    if (!container) return;
+
+    if (!query || !query.trim()) {
+        container.innerHTML = `
+            <div class="global-search-empty">
+                <div class="global-search-empty-icon">🔎</div>
+                <p>Começa a escrever para pesquisar.</p>
+                <small>Ou pressiona <kbd>Esc</kbd> para fechar.</small>
+            </div>
+        `;
+        return;
+    }
+
+    const results = performGlobalSearch(query);
+
+    if (!results.length) {
+        container.innerHTML = `
+            <div class="global-search-empty">
+                <div class="global-search-empty-icon">😕</div>
+                <p>Nada encontrado para "<strong>${escapeHtml(query)}</strong>"</p>
+                <small>Tenta outra palavra ou ajusta o filtro.</small>
+            </div>
+        `;
+        return;
+    }
+
+    // Agrupar por tipo
+    const groups = {
+        product:   { label: "💻 Computadores", items: [] },
+        accessory: { label: "🎧 Acessórios",    items: [] },
+        game:      { label: "🎮 Jogos",         items: [] },
+        software:  { label: "📊 Programas",     items: [] }
+    };
+
+    results.forEach(item => {
+        if (groups[item._type]) groups[item._type].items.push(item);
+    });
+
+    let html = "";
+    Object.values(groups).forEach(group => {
+        if (!group.items.length) return;
+
+        html += `<div class="global-search-group">
+            <div class="global-search-group-title">${group.label} <span style="opacity:.5">(${group.items.length})</span></div>
+            ${group.items.map(item => `
+                <div class="global-search-item"
+                     data-search-result-id="${item.id}"
+                     data-search-result-type="${item._type}">
+                    <div class="global-search-item-icon">
+                        ${item.image
+                            ? `<img src="${escapeHtml(item.image)}" alt="">`
+                            : `<span>${item.icon || (item._type === "game" ? "🎮" : item._type === "software" ? "📊" : item._type === "accessory" ? "🎧" : "💻")}</span>`}
+                    </div>
+                    <div class="global-search-item-info">
+                        <h5>${highlightMatch(item.name, query)}</h5>
+                        <p>${highlightMatch((item.description || "").slice(0, 70), query)}</p>
+                    </div>
+                    <div class="global-search-item-meta">
+                        <span class="global-search-item-price">${formatKz(item.price)}</span>
+                        <span class="global-search-item-tag">${item._label}</span>
+                    </div>
+                </div>
+            `).join("")}
+        </div>`;
+    });
+
+    container.innerHTML = html;
+
+    // Click handler
+    container.querySelectorAll("[data-search-result-id]").forEach(el => {
+        el.addEventListener("click", () => {
+            const id = Number(el.dataset.searchResultId);
+            const type = el.dataset.searchResultType;
+            closeModal("globalSearchModal");
+
+            setTimeout(() => {
+                if (type === "game") openGame(id);
+                else if (type === "software") openSoftware(id);
+                else openProduct(id);
+            }, 150);
+        });
+    });
+}
+
+function openGlobalSearch() {
+    openModal("globalSearchModal");
+    setTimeout(() => {
+        const input = $("globalSearchInput");
+        if (input) { input.value = ""; input.focus(); }
+        renderGlobalSearchResults("");
+    }, 100);
+}
+
+function setupGlobalSearch() {
+    // Botão no header
+    $("openGlobalSearch")?.addEventListener("click", openGlobalSearch);
+    $("closeGlobalSearch")?.addEventListener("click", () => closeModal("globalSearchModal"));
+
+    // Input de pesquisa
+    $("globalSearchInput")?.addEventListener("input", e => {
+        renderGlobalSearchResults(e.target.value);
+    });
+
+    // Filtros de tipo
+    document.querySelectorAll(".global-search-filter").forEach(btn => {
+        btn.addEventListener("click", () => {
+            document.querySelectorAll(".global-search-filter").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            globalSearchFilter = btn.dataset.searchFilter;
+            const input = $("globalSearchInput");
+            renderGlobalSearchResults(input?.value || "");
+        });
+    });
+
+    // Atalho Ctrl+K / Cmd+K
+    document.addEventListener("keydown", e => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+            e.preventDefault();
+            openGlobalSearch();
+        }
+    });
+
+    // Atalho "/" (fora de inputs)
+    document.addEventListener("keydown", e => {
+        if (e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            const active = document.activeElement;
+            const isInput = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable);
+            if (!isInput) {
+                e.preventDefault();
+                openGlobalSearch();
+            }
+        }
+    });
+}
+
+/* ==========================================================
    32 — INICIALIZAÇÃO
 ========================================================== */
 function initialize() {
@@ -3688,6 +3938,7 @@ function initialize() {
     safeCall("setupToastClose", setupToastClose);
     safeCall("setupClientsAdmin", setupClientsAdmin);
     safeCall("setupResetButton", setupResetButton);
+    safeCall("setupGlobalSearch", setupGlobalSearch);
 
     safeCall("renderProducts", renderProducts);
     safeCall("renderCart", renderCart);

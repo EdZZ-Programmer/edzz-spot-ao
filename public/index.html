@@ -49,7 +49,13 @@
             <a href="#contacto" class="nav-link">Contacto</a>
         </nav>
 
-        <div class="header-actions">
+            <div class="header-actions">
+            <button id="openGlobalSearch" class="icon-button global-search-btn" type="button" aria-label="Pesquisar" title="Pesquisar (Ctrl+K)">
+                <span>🔎</span>
+                <span class="global-search-hint">Pesquisar</span>
+                <kbd class="global-search-kbd">Ctrl K</kbd>
+            </button>
+
             <button id="themeToggle" class="icon-button" type="button" aria-label="Alterar tema">🌙</button>
 
             <button id="openFavorites" class="icon-button" type="button" aria-label="Ver favoritos" title="Favoritos">
@@ -502,6 +508,40 @@
         <div id="favoritesContent" class="favorites-content"></div>
     </div>
 </div>
+
+<!-- PESQUISA GLOBAL -->
+<div id="globalSearchModal" class="modal global-search-modal">
+    <div class="modal-overlay"></div>
+    <div class="global-search-container">
+        <div class="global-search-header">
+            <span class="global-search-icon">🔎</span>
+            <input
+                id="globalSearchInput"
+                type="search"
+                placeholder="Pesquisar computadores, jogos, programas, acessórios..."
+                autocomplete="off"
+                spellcheck="false">
+            <button id="closeGlobalSearch" class="global-search-close" type="button" aria-label="Fechar">×</button>
+        </div>
+
+        <div class="global-search-filters">
+            <button class="global-search-filter active" data-search-filter="all">Tudo</button>
+            <button class="global-search-filter" data-search-filter="product">💻 Computadores</button>
+            <button class="global-search-filter" data-search-filter="game">🎮 Jogos</button>
+            <button class="global-search-filter" data-search-filter="software">📊 Programas</button>
+            <button class="global-search-filter" data-search-filter="accessory">🎧 Acessórios</button>
+        </div>
+
+        <div id="globalSearchResults" class="global-search-results">
+            <div class="global-search-empty">
+                <div class="global-search-empty-icon">🔎</div>
+                <p>Começa a escrever para pesquisar.</p>
+                <small>Ou pressiona <kbd>Esc</kbd> para fechar.</small>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 <!-- PRODUTO -->
 <div id="productModal" class="modal">
