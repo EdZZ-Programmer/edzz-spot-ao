@@ -1843,6 +1843,96 @@ async function handleRecoverStep2(e) {
 }
 
 /* ==========================================================
+   22.9 — ADMIN SEARCH (pesquisa em todos os painéis)
+========================================================== */
+const adminSearchQueries = {
+    products: "", services: "", games: "", software: "",
+    carousel: "", orders: "", invoices: "", clients: "", logins: ""
+};
+
+// Cache dos dados que vêm do servidor (para filtrar sem re-fetch)
+const adminCache = {
+    clients: [],
+    invoices: [],
+    logins: []
+};
+
+/** Destaca o termo pesquisado dentro de um texto (com escapeHtml) */
+function highlightAdminMatch(text, query) {
+    const safe = escapeHtml(text || "");
+    if (!query || !query.trim()) return safe;
+    const safeQuery = escapeHtml(query).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    try {
+        return safe.replace(new RegExp(`(${safeQuery})`, "gi"), '<mark>$1</mark>');
+    } catch {
+        return safe;
+    }
+}
+
+/** Verifica se algum campo contém o termo */
+function adminMatch(item, query, fields) {
+    if (!query || !query.trim()) return true;
+    const q = query.toLowerCase().trim();
+    return fields.some(field => {
+        const v = field(item);
+        return v != null && String(v).toLowerCase().includes(q);
+    });
+}
+
+/** Contador de resultados */
+function adminResultsBadge(count, query, total) {
+    if (!query || !query.trim()) return "";
+    return `<span class="admin-search-counter">${count} de ${total}</span>`;
+}
+
+/** Estado vazio (sem resultados) */
+function adminEmptySearch(query) {
+    return `<div class="admin-empty-search">
+        <strong>Nenhum resultado para "${escapeHtml(query)}"</strong>
+        Tenta outra palavra.
+    </div>`;
+}
+
+/** Re-render do painel com a nova query */
+function rerenderAdminPanel(key) {
+    try {
+        switch (key) {
+            case "products":  renderAdminProducts();       break;
+            case "services":  renderAdminServices();       break;
+            case "games":     renderAdminGames();          break;
+            case "software":  renderAdminSoftware();       break;
+            case "carousel":  renderAdminCarousel();       break;
+            case "orders":    renderAdminOrdersFromServer(orders); break;
+            case "invoices":  renderInvoicesList();        break;
+            case "clients":   renderClientsList();         break;
+            case "logins":    renderLoginsList();          break;
+        }
+    } catch (err) {
+        console.error("Erro rerenderAdminPanel:", err);
+    }
+}
+
+/** Setup global dos inputs de pesquisa */
+function setupAdminSearch() {
+    document.querySelectorAll("[data-admin-search]").forEach(input => {
+        input.addEventListener("input", e => {
+            const key = input.dataset.adminSearch;
+            adminSearchQueries[key] = e.target.value;
+            rerenderAdminPanel(key);
+        });
+        // Atalho: Esc limpa
+        input.addEventListener("keydown", e => {
+            if (e.key === "Escape") {
+                input.value = "";
+                adminSearchQueries[input.dataset.adminSearch] = "";
+                rerenderAdminPanel(input.dataset.adminSearch);
+            }
+        });
+    });
+}
+
+
+/* ==========================================================
    23 — ADMIN
 ========================================================== */
 function isAdmin() { return currentUser?.role === "admin"; }
@@ -2203,55 +2293,75 @@ async function loadClients() {
     const list = $("adminClientList");
     if (!list) return;
     list.innerHTML = `<div class="admin-list-item"><div><h4>A carregar...</h4></div></div>`;
+
     try {
         const res = await fetch("/api/users", {
             headers: { "Authorization": `Bearer ${authToken}` }
         });
         if (!res.ok) throw new Error("Sem permissão.");
         const users = await res.json();
-        const clients = users.filter(u => u.role !== "admin");
-
-        if (!clients.length) {
-            list.innerHTML = `<div class="admin-list-item"><div><h4>Nenhum cliente registado.</h4></div></div>`;
-            return;
-        }
-
-        list.innerHTML = clients.map(u => `
-            <div class="admin-list-item">
-                <div class="admin-item-info">
-                    <div class="admin-item-icon">👤</div>
-                    <div>
-                        <h4>${escapeHtml(u.name)}</h4>
-                        <p>${escapeHtml(u.email)}</p>
-                        <p style="font-size:.72rem;margin-top:4px;">
-                            📞 ${escapeHtml(u.phone || "—")}
-                            • Desde ${new Date(u.createdAt).toLocaleDateString("pt-AO")}
-                            ${u.hasSecurityQuestion ? " • 🔐 com pergunta" : " • ⚠️ sem pergunta"}
-                        </p>
-                    </div>
-                </div>
-                <div class="client-actions">
-                    <button class="reset-password-btn"
-                            data-reset-password="${u.id}"
-                            data-user-name="${escapeHtml(u.name)}"
-                            data-user-email="${escapeHtml(u.email)}">
-                        🔑 Redefinir senha
-                    </button>
-                </div>
-            </div>
-        `).join("");
-
-        list.querySelectorAll("[data-reset-password]").forEach(btn => {
-            btn.addEventListener("click", () => {
-                setVal("adminResetUserId", btn.dataset.resetPassword);
-                setVal("adminResetPassword", "");
-                setText("adminResetUserInfo", `${btn.dataset.userName} (${btn.dataset.userEmail})`);
-                openModal("adminResetPasswordModal");
-            });
-        });
+        adminCache.clients = users.filter(u => u.role !== "admin");
+        renderClientsList();
     } catch (err) {
         list.innerHTML = `<div class="admin-list-item"><div><h4>Erro</h4><p>${escapeHtml(err.message)}</p></div></div>`;
     }
+}
+
+function renderClientsList() {
+    const list = $("adminClientList");
+    if (!list) return;
+
+    const q = adminSearchQueries.clients;
+    const all = adminCache.clients;
+
+    if (!all.length) {
+        list.innerHTML = `<div class="admin-list-item"><div><h4>Nenhum cliente registado.</h4></div></div>`;
+        return;
+    }
+
+    const filtered = all.filter(u => adminMatch(u, q, [
+        x => x.name, x => x.email, x => x.phone,
+        x => new Date(x.createdAt).toLocaleDateString("pt-AO")
+    ]));
+
+    if (!filtered.length) {
+        list.innerHTML = adminEmptySearch(q);
+        return;
+    }
+
+    list.innerHTML = filtered.map(u => `
+        <div class="admin-list-item">
+            <div class="admin-item-info">
+                <div class="admin-item-icon">👤</div>
+                <div>
+                    <h4>${highlightAdminMatch(u.name, q)}</h4>
+                    <p>${highlightAdminMatch(u.email, q)}</p>
+                    <p style="font-size:.72rem;margin-top:4px;">
+                        📞 ${highlightAdminMatch(u.phone || "—", q)}
+                        • Desde ${new Date(u.createdAt).toLocaleDateString("pt-AO")}
+                        ${u.hasSecurityQuestion ? " • 🔐 com pergunta" : " • ⚠️ sem pergunta"}
+                    </p>
+                </div>
+            </div>
+            <div class="client-actions">
+                <button class="reset-password-btn"
+                        data-reset-password="${u.id}"
+                        data-user-name="${escapeHtml(u.name)}"
+                        data-user-email="${escapeHtml(u.email)}">
+                    🔑 Redefinir senha
+                </button>
+            </div>
+        </div>
+    `).join("") + adminResultsBadge(filtered.length, q, all.length);
+
+    list.querySelectorAll("[data-reset-password]").forEach(btn => {
+        btn.addEventListener("click", () => {
+            setVal("adminResetUserId", btn.dataset.resetPassword);
+            setVal("adminResetPassword", "");
+            setText("adminResetUserInfo", `${btn.dataset.userName} (${btn.dataset.userEmail})`);
+            openModal("adminResetPasswordModal");
+        });
+    });
 }
 
 function setupClientsAdmin() {
@@ -2294,39 +2404,61 @@ async function loadLogins() {
     const list = $("adminLoginList");
     if (!list) return;
     list.innerHTML = `<div class="admin-list-item"><div><h4>A carregar...</h4></div></div>`;
+
     try {
         const res = await fetch("/api/logins", {
             headers: { "Authorization": `Bearer ${authToken}` }
         });
         if (!res.ok) throw new Error("Sem permissão.");
-        const logins = await res.json();
-        if (!logins.length) {
-            list.innerHTML = `<div class="admin-list-item"><div><h4>Ainda não há registos.</h4></div></div>`;
-            return;
-        }
-        list.innerHTML = logins.map(l => `
-            <div class="admin-list-item ${l.success ? "" : "is-new"}">
-                <div class="admin-item-info">
-                    <div class="admin-item-icon">${l.success ? "✅" : "❌"}</div>
-                    <div>
-                        <h4>${escapeHtml(l.name)} ${l.role === "admin" ? "👑" : ""}</h4>
-                        <p>${escapeHtml(l.email)}</p>
-                        <p style="font-size:.72rem;margin-top:4px;">
-                            🌐 ${escapeHtml((l.ip || "").replace("::ffff:", ""))}
-                            • ${new Date(l.date).toLocaleString("pt-AO")}
-                        </p>
-                    </div>
-                </div>
-                <div class="admin-item-actions">
-                    <span style="font-size:.72rem;color:${l.success ? "var(--success)" : "var(--danger)"};font-weight:800;">
-                        ${l.success ? "SUCESSO" : "FALHOU"}
-                    </span>
-                </div>
-            </div>
-        `).join("");
+        adminCache.logins = await res.json();
+        renderLoginsList();
     } catch (err) {
         list.innerHTML = `<div class="admin-list-item"><div><h4>Erro</h4><p>${escapeHtml(err.message)}</p></div></div>`;
     }
+}
+
+function renderLoginsList() {
+    const list = $("adminLoginList");
+    if (!list) return;
+
+    const q = adminSearchQueries.logins;
+    const all = adminCache.logins;
+
+    if (!all.length) {
+        list.innerHTML = `<div class="admin-list-item"><div><h4>Ainda não há registos.</h4></div></div>`;
+        return;
+    }
+
+    const filtered = all.filter(l => adminMatch(l, q, [
+        x => x.name, x => x.email, x => x.ip, x => x.role,
+        x => x.success ? "sucesso" : "falhou"
+    ]));
+
+    if (!filtered.length) {
+        list.innerHTML = adminEmptySearch(q);
+        return;
+    }
+
+    list.innerHTML = filtered.map(l => `
+        <div class="admin-list-item ${l.success ? "" : "is-new"}">
+            <div class="admin-item-info">
+                <div class="admin-item-icon">${l.success ? "✅" : "❌"}</div>
+                <div>
+                    <h4>${highlightAdminMatch(l.name, q)} ${l.role === "admin" ? "👑" : ""}</h4>
+                    <p>${highlightAdminMatch(l.email, q)}</p>
+                    <p style="font-size:.72rem;margin-top:4px;">
+                        🌐 ${highlightAdminMatch((l.ip || "").replace("::ffff:", ""), q)}
+                        • ${new Date(l.date).toLocaleString("pt-AO")}
+                    </p>
+                </div>
+            </div>
+            <div class="admin-item-actions">
+                <span style="font-size:.72rem;color:${l.success ? "var(--success)" : "var(--danger)"};font-weight:800;">
+                    ${l.success ? "SUCESSO" : "FALHOU"}
+                </span>
+            </div>
+        </div>
+    `).join("") + adminResultsBadge(filtered.length, q, all.length);
 }
 
 /* --------- Faturas --------- */
@@ -2334,79 +2466,95 @@ async function loadInvoices() {
     const list = $("adminInvoiceList");
     if (!list) return;
     list.innerHTML = `<div class="admin-list-item"><div><h4>A carregar...</h4></div></div>`;
+
     try {
         const res = await fetch("/api/invoices", {
             headers: { "Authorization": `Bearer ${authToken}` }
         });
         if (!res.ok) throw new Error("Sem permissão.");
-        const invoices = await res.json();
-        if (!invoices.length) {
-            list.innerHTML = `<div class="admin-list-item"><div><h4>Nenhuma fatura ainda.</h4></div></div>`;
-            return;
-        }
-        list.innerHTML = invoices.map(inv => `
-            <div class="admin-list-item">
-                <div class="admin-item-info">
-                    <div class="admin-item-icon">🧾</div>
-                    <div>
-                        <h4>${inv.id}</h4>
-                        <p>${escapeHtml(inv.customer?.name || "?")} • ${formatKz(inv.total)} • ${escapeHtml(inv.paymentMethod || "—")}</p>
-                        <p style="font-size:.72rem;margin-top:4px;">
-                            ${new Date(inv.date).toLocaleString("pt-AO")}
-                        </p>
-                    </div>
-                </div>
-                <div class="admin-item-actions">
-                    <button class="admin-edit" data-view-invoice="${inv.id}">Ver detalhes</button>
-                </div>
-            </div>
-        `).join("");
-
-        list.querySelectorAll("[data-view-invoice]").forEach(btn => {
-            btn.addEventListener("click", () => {
-                const inv = invoices.find(i => i.id === btn.dataset.viewInvoice);
-                if (inv) showInvoiceDetails(inv);
-            });
-        });
+        adminCache.invoices = await res.json();
+        renderInvoicesList();
     } catch (err) {
         list.innerHTML = `<div class="admin-list-item"><div><h4>Erro</h4><p>${escapeHtml(err.message)}</p></div></div>`;
     }
 }
 
-function showInvoiceDetails(invoice) {
-    setText("invoiceOrderNumber", invoice.id);
-    setText("invoiceDate", new Date(invoice.date).toLocaleString("pt-AO"));
-    setText("invoiceCustomer", invoice.customer?.name || "—");
-    setText("invoicePhone", invoice.customer?.phone || "—");
-    setText("invoiceSubtotal", formatKz(invoice.subtotal));
-    setText("invoiceShipping", formatKz(invoice.shipping));
-    setText("invoiceTotal", formatKz(invoice.total));
+function renderInvoicesList() {
+    const list = $("adminInvoiceList");
+    if (!list) return;
 
-    if ($("invoiceItems")) {
-        $("invoiceItems").innerHTML = (invoice.items || []).map(item => `
-            <div class="invoice-item">
-                <span>${escapeHtml(item.name)}</span>
-                <span>${item.quantity}x</span>
-                <strong>${formatKz(item.price * item.quantity)}</strong>
-            </div>
-        `).join("");
+    const q = adminSearchQueries.invoices;
+    const all = adminCache.invoices;
+
+    if (!all.length) {
+        list.innerHTML = `<div class="admin-list-item"><div><h4>Nenhuma fatura ainda.</h4></div></div>`;
+        return;
     }
-    openModal("invoiceModal");
+
+    const filtered = all.filter(inv => adminMatch(inv, q, [
+        x => x.id, x => x.customer?.name, x => x.customer?.email,
+        x => x.customer?.phone, x => x.paymentMethod, x => x.status,
+        x => formatKz(x.total)
+    ]));
+
+    if (!filtered.length) {
+        list.innerHTML = adminEmptySearch(q);
+        return;
+    }
+
+    list.innerHTML = filtered.map(inv => `
+        <div class="admin-list-item">
+            <div class="admin-item-info">
+                <div class="admin-item-icon">🧾</div>
+                <div>
+                    <h4>${highlightAdminMatch(inv.id, q)}</h4>
+                    <p>${highlightAdminMatch(inv.customer?.name || "?", q)} • ${formatKz(inv.total)} • ${highlightAdminMatch(inv.paymentMethod || "—", q)}</p>
+                    <p style="font-size:.72rem;margin-top:4px;">
+                        ${new Date(inv.date).toLocaleString("pt-AO")}
+                    </p>
+                </div>
+            </div>
+            <div class="admin-item-actions">
+                <button class="admin-edit" data-view-invoice="${inv.id}">Ver detalhes</button>
+            </div>
+        </div>
+    `).join("") + adminResultsBadge(filtered.length, q, all.length);
+
+    list.querySelectorAll("[data-view-invoice]").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const inv = all.find(i => i.id === btn.dataset.viewInvoice);
+            if (inv) showInvoiceDetails(inv);
+        });
+    });
 }
 
 /* --------- Produtos admin --------- */
 function renderAdminProducts() {
     const list = $("adminProductList");
     if (!list) return;
-    list.innerHTML = products.map(p => `
+
+    const q = adminSearchQueries.products;
+    const all = products;
+    const filtered = all.filter(p => adminMatch(p, q, [
+        x => x.name, x => x.description, x => x.processor,
+        x => x.ram, x => x.storage, x => x.gpu,
+        x => getCategoryName(x.category), x => formatKz(x.price)
+    ]));
+
+    if (!filtered.length) {
+        list.innerHTML = adminEmptySearch(q);
+        return;
+    }
+
+    list.innerHTML = filtered.map(p => `
         <div class="admin-list-item">
             <div class="admin-item-info">
                 <div class="admin-item-icon">
                     ${p.image ? `<img src="${escapeHtml(p.image)}" alt="">` : `💻`}
                 </div>
                 <div>
-                    <h4>${escapeHtml(p.name)}</h4>
-                    <p>${formatKz(p.price)} • ${getCategoryName(p.category)}</p>
+                    <h4>${highlightAdminMatch(p.name, q)}</h4>
+                    <p>${formatKz(p.price)} • ${highlightAdminMatch(getCategoryName(p.category), q)}</p>
                 </div>
             </div>
             <div class="admin-item-actions">
@@ -2414,7 +2562,7 @@ function renderAdminProducts() {
                 <button class="admin-delete" data-delete-product="${p.id}">Eliminar</button>
             </div>
         </div>
-    `).join("");
+    `).join("") + adminResultsBadge(filtered.length, q, all.length);
 }
 
 function setupProductAdmin() {
@@ -2509,19 +2657,27 @@ function deleteProduct(id) {
 function renderAdminServices() {
     const list = $("adminServiceList");
     if (!list) return;
-    if (!services.length) {
-        list.innerHTML = `<div class="admin-list-item"><div><h4>Nenhum serviço cadastrado.</h4></div></div>`;
+
+    const q = adminSearchQueries.services;
+    const all = services;
+    const filtered = all.filter(s => adminMatch(s, q, [
+        x => x.name, x => x.description, x => formatKz(x.price)
+    ]));
+
+    if (!filtered.length) {
+        list.innerHTML = adminEmptySearch(q);
         return;
     }
-    list.innerHTML = services.map(s => `
+
+    list.innerHTML = filtered.map(s => `
         <div class="admin-list-item">
             <div class="admin-item-info">
                 <div class="admin-item-icon">
                     ${s.image ? `<img src="${escapeHtml(s.image)}" alt="">` : escapeHtml(s.icon || "🛠️")}
                 </div>
                 <div>
-                    <h4>${escapeHtml(s.name)}</h4>
-                    <p>${formatKz(s.price)} • ${escapeHtml(s.description)}</p>
+                    <h4>${highlightAdminMatch(s.name, q)}</h4>
+                    <p>${formatKz(s.price)} • ${highlightAdminMatch(s.description, q)}</p>
                 </div>
             </div>
             <div class="admin-item-actions">
@@ -2529,7 +2685,7 @@ function renderAdminServices() {
                 <button class="admin-delete" data-delete-service="${s.id}">Eliminar</button>
             </div>
         </div>
-    `).join("");
+    `).join("") + adminResultsBadge(filtered.length, q, all.length);
 }
 
 function setupServiceAdmin() {
@@ -2613,19 +2769,27 @@ function deleteServiceById(id) {
 function renderAdminGames() {
     const list = $("adminGameList");
     if (!list) return;
-    if (!games.length) {
-        list.innerHTML = `<div class="admin-list-item"><div><h4>Nenhum jogo cadastrado.</h4></div></div>`;
+
+    const q = adminSearchQueries.games;
+    const all = games;
+    const filtered = all.filter(g => adminMatch(g, q, [
+        x => x.name, x => x.description, x => formatKz(x.price)
+    ]));
+
+    if (!filtered.length) {
+        list.innerHTML = adminEmptySearch(q);
         return;
     }
-    list.innerHTML = games.map(g => `
+
+    list.innerHTML = filtered.map(g => `
         <div class="admin-list-item">
             <div class="admin-item-info">
                 <div class="admin-item-icon">
                     ${g.image ? `<img src="${escapeHtml(g.image)}" alt="">` : escapeHtml(g.icon || "🎮")}
                 </div>
                 <div>
-                    <h4>${escapeHtml(g.name)}</h4>
-                    <p>${formatKz(g.price)} • ${escapeHtml(g.description)}</p>
+                    <h4>${highlightAdminMatch(g.name, q)}</h4>
+                    <p>${formatKz(g.price)} • ${highlightAdminMatch(g.description, q)}</p>
                 </div>
             </div>
             <div class="admin-item-actions">
@@ -2633,7 +2797,7 @@ function renderAdminGames() {
                 <button class="admin-delete" data-delete-game="${g.id}">Eliminar</button>
             </div>
         </div>
-    `).join("");
+    `).join("") + adminResultsBadge(filtered.length, q, all.length);
 }
 
 function setupGameAdmin() {
@@ -2717,19 +2881,27 @@ function deleteGameById(id) {
 function renderAdminSoftware() {
     const list = $("adminSoftwareList");
     if (!list) return;
-    if (!software.length) {
-        list.innerHTML = `<div class="admin-list-item"><div><h4>Nenhum programa cadastrado.</h4></div></div>`;
+
+    const q = adminSearchQueries.software;
+    const all = software;
+    const filtered = all.filter(s => adminMatch(s, q, [
+        x => x.name, x => x.description, x => formatKz(x.price)
+    ]));
+
+    if (!filtered.length) {
+        list.innerHTML = adminEmptySearch(q);
         return;
     }
-    list.innerHTML = software.map(s => `
+
+    list.innerHTML = filtered.map(s => `
         <div class="admin-list-item">
             <div class="admin-item-info">
                 <div class="admin-item-icon">
                     ${s.image ? `<img src="${escapeHtml(s.image)}" alt="">` : escapeHtml(s.icon || "📊")}
                 </div>
                 <div>
-                    <h4>${escapeHtml(s.name)}</h4>
-                    <p>${formatKz(s.price)} • ${escapeHtml(s.description)}</p>
+                    <h4>${highlightAdminMatch(s.name, q)}</h4>
+                    <p>${formatKz(s.price)} • ${highlightAdminMatch(s.description, q)}</p>
                 </div>
             </div>
             <div class="admin-item-actions">
@@ -2737,7 +2909,7 @@ function renderAdminSoftware() {
                 <button class="admin-delete" data-delete-software="${s.id}">Eliminar</button>
             </div>
         </div>
-    `).join("");
+    `).join("") + adminResultsBadge(filtered.length, q, all.length);
 }
 
 function setupSoftwareAdmin() {
@@ -2821,19 +2993,27 @@ function deleteSoftwareById(id) {
 function renderAdminCarousel() {
     const list = $("adminCarouselList");
     if (!list) return;
-    if (!carouselSlides.length) {
-        list.innerHTML = `<div class="admin-list-item"><div><h4>Nenhum slide.</h4></div></div>`;
+
+    const q = adminSearchQueries.carousel;
+    const all = carouselSlides;
+    const filtered = all.filter(s => adminMatch(s, q, [
+        x => x.tag, x => x.title.replace(/<[^>]*>/g, ""), x => x.description, x => formatKz(x.price)
+    ]));
+
+    if (!filtered.length) {
+        list.innerHTML = adminEmptySearch(q);
         return;
     }
-    list.innerHTML = carouselSlides.map(s => `
+
+    list.innerHTML = filtered.map(s => `
         <div class="admin-list-item">
             <div class="admin-item-info">
                 <div class="admin-item-icon">
                     ${s.image ? `<img src="${escapeHtml(s.image)}" alt="">` : `🎠`}
                 </div>
                 <div>
-                    <h4>${s.title.replace(/<[^>]*>/g, "")}</h4>
-                    <p>${escapeHtml(s.tag)} • ${formatKz(s.price)}</p>
+                    <h4>${highlightAdminMatch(s.title.replace(/<[^>]*>/g, ""), q)}</h4>
+                    <p>${highlightAdminMatch(s.tag, q)} • ${formatKz(s.price)}</p>
                 </div>
             </div>
             <div class="admin-item-actions">
@@ -2841,7 +3021,7 @@ function renderAdminCarousel() {
                 <button class="admin-delete" data-delete-carousel="${s.id}">Eliminar</button>
             </div>
         </div>
-    `).join("");
+    `).join("") + adminResultsBadge(filtered.length, q, all.length);
 }
 
 function setupCarouselAdmin() {
@@ -3026,11 +3206,22 @@ async function checkForNewOrders(firstRun = false) {
 function renderAdminOrdersFromServer(ordersFromServer) {
     const list = $("adminOrderList");
     if (!list) return;
-    if (!ordersFromServer.length) {
-        list.innerHTML = `<div class="admin-list-item"><div><h4>Nenhum pedido ainda.</h4><p>Os pedidos dos clientes aparecerão aqui.</p></div></div>`;
+
+    const q = adminSearchQueries.orders;
+    const all = Array.isArray(ordersFromServer) ? ordersFromServer : [];
+    const filtered = all.filter(o => adminMatch(o, q, [
+        x => x.id, x => x.customer?.name, x => x.customer?.email,
+        x => x.customer?.phone, x => x.customer?.address,
+        x => x.status, x => x.paymentMethod, x => formatKz(x.total),
+        x => (x.items || []).map(i => i.name).join(" ")
+    ]));
+
+    if (!filtered.length) {
+        list.innerHTML = q ? adminEmptySearch(q) : `<div class="admin-list-item"><div><h4>Nenhum pedido ainda.</h4><p>Os pedidos dos clientes aparecerão aqui.</p></div></div>`;
         return;
     }
-    const sorted = [...ordersFromServer].reverse();
+
+    const sorted = [...filtered].reverse();
     list.innerHTML = sorted.map(o => {
         const isSeen = o.seen === true;
         const status = o.status || "Pendente";
@@ -3041,17 +3232,17 @@ function renderAdminOrdersFromServer(ordersFromServer) {
                 <div class="admin-item-icon">🛒</div>
                 <div>
                     <h4>
-                        ${o.id}
+                        ${highlightAdminMatch(o.id, q)}
                         <span class="order-status-badge ${statusClass}">${status}</span>
                         ${isSeen ? "" : '<span class="order-new-badge">NOVO</span>'}
                     </h4>
                     <p>
-                        ${escapeHtml(o.customer?.name || "?")} •
+                        ${highlightAdminMatch(o.customer?.name || "?", q)} •
                         ${formatKz(o.total)} •
-                        ${escapeHtml(o.paymentMethod || "—")}
+                        ${highlightAdminMatch(o.paymentMethod || "—", q)}
                     </p>
                     <p style="font-size:.72rem;margin-top:4px;">
-                        📞 ${escapeHtml(o.customer?.phone || "—")}
+                        📞 ${highlightAdminMatch(o.customer?.phone || "—", q)}
                         • ${new Date(o.date).toLocaleString("pt-AO")}
                     </p>
                 </div>
@@ -3068,7 +3259,9 @@ function renderAdminOrdersFromServer(ordersFromServer) {
             </div>
         </div>
         `;
-    }).join("");
+    }).join("") + adminResultsBadge(filtered.length, q, all.length);
+
+    // ... (o resto dos event listeners mantém-se igual)
 
     list.querySelectorAll("[data-mark-seen]").forEach(btn => {
         btn.addEventListener("click", async () => {
@@ -3939,6 +4132,7 @@ function initialize() {
     safeCall("setupClientsAdmin", setupClientsAdmin);
     safeCall("setupResetButton", setupResetButton);
     safeCall("setupGlobalSearch", setupGlobalSearch);
+    safeCall("setupAdminSearch", setupAdminSearch);
 
     safeCall("renderProducts", renderProducts);
     safeCall("renderCart", renderCart);

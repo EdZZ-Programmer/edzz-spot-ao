@@ -1417,6 +1417,109 @@ body.light-mode .toast { background: #ffffff; }
     .mobile-menu-button { display: flex; }
 }
 
+/* ==========================================================
+   ADMIN — PESQUISA EM PAINÉIS
+========================================================== */
+.admin-panel-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+.admin-search-box {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+.admin-search-box > span {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: .55;
+    pointer-events: none;
+    font-size: .9rem;
+    z-index: 1;
+}
+.admin-search-box input {
+    padding: 9px 14px 9px 36px;
+    min-width: 220px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: rgba(255,255,255,.03);
+    color: var(--text);
+    font-size: .82rem;
+    outline: none;
+    transition: var(--tr);
+}
+.admin-search-box input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-soft);
+    background: rgba(0,217,255,.03);
+}
+.admin-search-box input::placeholder {
+    color: var(--muted);
+}
+.admin-search-box input::-webkit-search-cancel-button {
+    filter: invert(1);
+    cursor: pointer;
+    opacity: .5;
+}
+body.light-mode .admin-search-box input::-webkit-search-cancel-button {
+    filter: invert(0);
+}
+
+/* Destaque do match */
+.admin-list-item mark,
+.admin-list-item .admin-match {
+    background: rgba(0,217,255,.25);
+    color: var(--primary);
+    padding: 0 3px;
+    border-radius: 3px;
+    font-weight: 700;
+}
+
+/* Contador de resultados */
+.admin-search-counter {
+    padding: 4px 10px;
+    border-radius: 99px;
+    background: var(--primary-soft);
+    color: var(--primary);
+    font-size: .72rem;
+    font-weight: 800;
+    font-family: Orbitron, sans-serif;
+}
+
+/* Estado vazio */
+.admin-empty-search {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: .88rem;
+}
+.admin-empty-search strong {
+    color: var(--primary);
+    display: block;
+    font-size: 1rem;
+    margin-bottom: 6px;
+}
+
+@media (max-width: 900px) {
+    .admin-panel-actions {
+        width: 100%;
+        margin-left: 0;
+    }
+    .admin-search-box {
+        flex: 1;
+    }
+    .admin-search-box input {
+        min-width: 0;
+        width: 100%;
+    }
+}
+
 /* IMPRESSÃO */
 @media print {
     body > *:not(#invoiceModal) { display: none !important; }
