@@ -187,6 +187,18 @@ app.post("/api/auth/register", async (req, res) => {
         users.push(user);
         saveUsers(users);
 
+        // ✅ Regista também o momento do registo como login
+        const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "—";
+        const ua = req.headers["user-agent"] || "—";
+        registerLogin({
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            ip,
+            userAgent: ua,
+            success: true
+        });
+
         const token = jwt.sign(
             { id: user.id, email: user.email, role: user.role },
             JWT_SECRET,
@@ -552,9 +564,29 @@ app.get("/api/orders", (req, res) => {
 app.post("/api/orders", (req, res) => {
     try {
         const order = req.body;
-        if (!order || !order.id) return res.status(400).json({ error: "Pedido inválido." });
+        if (!order || !order.id) {
+            return res.status(400).json({ error: "Pedido inválido." });
+        }
 
         const orders = readOrders();
+
+        // ✅ Garante que o ID é único
+        let finalId = order.id;
+        if (orders.find(o => o.id === finalId)) {
+            const year = new Date().getFullYear();
+            let seq = orders.length + 1;
+            let candidate = `EDZ-${year}-${String(seq).padStart(4, "0")}`;
+
+            while (orders.find(o => o.id === candidate)) {
+                seq++;
+                candidate = `EDZ-${year}-${String(seq).padStart(4, "0")}`;
+            }
+
+            console.log(`⚠️ ID duplicado: ${order.id} → ${finalId}`);
+            finalId = candidate;
+        }
+
+        order.id = finalId;
         order.seen = false;
         order.receivedAt = new Date().toISOString();
         orders.push(order);
@@ -572,13 +604,21 @@ app.post("/api/orders", (req, res) => {
 app.patch("/api/orders/:id/seen", (req, res) => {
     try {
         const orders = readOrders();
-        const order = orders.find(o => o.id === req.params.id);
-        if (order) {
-            order.seen = true;
-            saveOrders(orders);
-            console.log(`✅ Pedido marcado como lido: ${order.id}`);
-        }
-        res.json({ ok: true });
+        let count = 0;
+
+        // ✅ Marca TODOS os pedidos com este ID como lidos
+        // (resolve IDs duplicados antigos)
+        orders.forEach(o => {
+            if (o.id === req.params.id) {
+                o.seen = true;
+                count++;
+            }
+        });
+
+        saveOrders(orders);
+        console.log(`✅ Pedido ${req.params.id} marcado como lido (${count} registos)`);
+
+        res.json({ ok: true, marked: count });
     } catch (err) {
         res.status(500).json({ error: "Erro." });
     }

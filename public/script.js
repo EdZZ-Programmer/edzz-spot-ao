@@ -1402,8 +1402,9 @@ function openAdmin() {
         openModal("loginModal");
         return;
     }
-    renderAdmin();
     openModal("adminModal");
+    // ✅ Busca sempre fresh do servidor
+    loadAdminDataFromServer();
 }
 
 function setupAdminTabs() {
@@ -1417,26 +1418,66 @@ function setupAdminTabs() {
             const panelId = "admin" + key.charAt(0).toUpperCase() + key.slice(1);
             $(panelId)?.classList.add("active");
 
+            // ✅ Recarrega dados específicos de cada tab
             if (key === "clients") loadClients();
             if (key === "orders") checkForNewOrders();
             if (key === "logins") loadLogins();
             if (key === "invoices") loadInvoices();
+            if (key === "products") loadAdminDataFromServer();
+            if (key === "services") loadAdminDataFromServer();
+            if (key === "games") loadAdminDataFromServer();
+            if (key === "software") loadAdminDataFromServer();
+            if (key === "carousel") loadAdminDataFromServer();
         });
     });
 }
 
 function renderAdmin() {
-    setText("adminProductCount", products.length);
-    setText("adminOrderCount", orders.length);
-    setText("adminRevenue", formatKz(orders.reduce((s, o) => s + o.total, 0)));
-    setText("adminClientCount", new Set(orders.map(o => o.customer.email)).size);
+    // ✅ Busca tudo do servidor (em vez de usar localStorage local)
+    loadAdminDataFromServer();
+}
 
-    renderAdminProducts();
-    renderAdminServices();
-    renderAdminGames();
-    renderAdminSoftware();
-    renderAdminCarousel();
-    renderAdminOrders();
+async function loadAdminDataFromServer() {
+    try {
+        // Pedidos
+        const ordersRes = await fetch("/api/orders");
+        const ordersFromServer = ordersRes.ok ? await ordersRes.json() : [];
+
+        // Clientes (via admin)
+        let clients = [];
+        try {
+            const usersRes = await fetch("/api/users", {
+                headers: { "Authorization": `Bearer ${authToken}` }
+            });
+            const users = usersRes.ok ? await usersRes.json() : [];
+            clients = users.filter(u => u.role !== "admin");
+        } catch { /* ignora */ }
+
+        // Atualiza estado local
+        orders = ordersFromServer;
+
+        // Calcula totais
+        const revenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+
+        // Atualiza contadores
+        setText("adminProductCount", products.length);
+        setText("adminOrderCount", orders.length);
+        setText("adminRevenue", formatKz(revenue));
+        setText("adminClientCount", clients.length);
+
+        // Renderiza listas
+        renderAdminProducts();
+        renderAdminServices();
+        renderAdminGames();
+        renderAdminSoftware();
+        renderAdminCarousel();
+        renderAdminOrdersFromServer(orders);
+
+        updateAdminOrderBadge(orders);
+
+    } catch (err) {
+        console.error("Erro a carregar admin:", err);
+    }
 }
 
 /* ==========================================================
@@ -2857,7 +2898,7 @@ function renderAdminOrdersFromServer(ordersFromServer) {
     `;
     }).join("");
 
-    list.querySelectorAll("[data-mark-seen]").forEach(btn => {
+        list.querySelectorAll("[data-mark-seen]").forEach(btn => {
         btn.addEventListener("click", async () => {
             const id = btn.dataset.markSeen;
             btn.disabled = true;
@@ -2871,10 +2912,14 @@ function renderAdminOrdersFromServer(ordersFromServer) {
                 });
                 if (!res.ok) throw new Error("Falha ao marcar.");
                 showToast("✅", "Pedido marcado como lido.");
+
+                // ✅ Recarrega do servidor (garante sincronização)
+                await loadAdminDataFromServer();
             } catch (err) {
                 showToast("Erro", err.message);
+                btn.disabled = false;
+                btn.textContent = "Marcar como lido";
             }
-            checkForNewOrders();
         });
     });
 }

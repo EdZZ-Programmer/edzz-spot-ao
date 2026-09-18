@@ -1038,15 +1038,72 @@ body.light-mode .toast { background: #ffffff; }
     .toast { right: 16px; bottom: 90px; }
 }
 
-/* 26 — IMPRESSÃO */
+/* ==========================================================
+   26 — IMPRESSÃO (só a fatura, 1 página)
+========================================================== */
 @media print {
-    body * { visibility: hidden; }
-    .invoice-modal-content, .invoice-modal-content * { visibility: visible; }
-    .invoice-modal-content {
-        position: absolute; inset: 0 auto auto 0; width: 100%;
-        box-shadow: none; border: none; max-height: none;
+    /* Esconde tudo excepto o modal da fatura */
+    body > *:not(#invoiceModal) {
+        display: none !important;
     }
-    .invoice-actions, .modal-close, .whatsapp-float { display: none !important; }
+
+    html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    #invoiceModal {
+        position: static !important;
+        display: block !important;
+        background: white !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: visible !important;
+    }
+
+    #invoiceModal .modal-overlay,
+    .invoice-actions,
+    .modal-close,
+    .whatsapp-float,
+    .header,
+    .footer {
+        display: none !important;
+    }
+
+    #invoiceModal .modal-content.invoice-modal-content {
+        position: static !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: none !important;
+        box-shadow: none !important;
+        border: none !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: visible !important;
+        page-break-inside: avoid !important;
+    }
+
+    /* Compacta para caber numa página A4 */
+    .invoice-header { padding: 12px 18px !important; }
+    .invoice-title-area { padding: 8px 18px !important; }
+    .invoice-meta,
+    .invoice-customer { padding: 8px 18px !important; gap: 10px !important; }
+    .invoice-items { padding: 8px 18px !important; }
+    .invoice-item { padding: 4px 0 !important; font-size: .8rem !important; }
+    .invoice-summary { padding: 8px 18px !important; }
+    .invoice-disclaimer { padding: 8px 18px !important; font-size: .7rem !important; }
+
+    /* Remove animações */
+    * { animation: none !important; transition: none !important; }
+
+    @page {
+        size: A4;
+        margin: 10mm;
+    }
 }
 
 /* 27 — AUTENTICAÇÃO */
