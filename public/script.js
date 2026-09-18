@@ -2866,8 +2866,9 @@ function renderAdminOrdersFromServer(ordersFromServer) {
     const sorted = [...ordersFromServer].reverse();
 
     list.innerHTML = sorted.map(o => {
-        // Trata como não lido se "seen" for false OU undefined
         const isSeen = o.seen === true;
+        const status = o.status || "Pendente";
+        const statusClass = getStatusClass(status);
 
         return `
         <div class="admin-list-item ${isSeen ? "" : "is-new"}">
@@ -2876,6 +2877,7 @@ function renderAdminOrdersFromServer(ordersFromServer) {
                 <div>
                     <h4>
                         ${o.id}
+                        <span class="order-status-badge ${statusClass}">${status}</span>
                         ${isSeen ? "" : '<span class="order-new-badge">NOVO</span>'}
                     </h4>
                     <p>
@@ -2889,16 +2891,22 @@ function renderAdminOrdersFromServer(ordersFromServer) {
                     </p>
                 </div>
             </div>
-            ${isSeen ? "" : `
-                <div class="admin-item-actions">
-                    <button class="admin-edit" data-mark-seen="${o.id}">Marcar como lido</button>
-                </div>
-            `}
+            <div class="admin-item-actions">
+                ${isSeen ? "" : `<button class="admin-edit" data-mark-seen="${o.id}">Marcar como lido</button>`}
+                <select class="order-status-select" data-order-status="${o.id}">
+                    <option value="Pendente"   ${status === "Pendente"   ? "selected" : ""}>🟡 Pendente</option>
+                    <option value="Confirmado" ${status === "Confirmado" ? "selected" : ""}>🔵 Confirmado</option>
+                    <option value="Enviado"    ${status === "Enviado"    ? "selected" : ""}>🟣 Enviado</option>
+                    <option value="Entregue"   ${status === "Entregue"   ? "selected" : ""}>🟢 Entregue</option>
+                    <option value="Cancelado"  ${status === "Cancelado"  ? "selected" : ""}>🔴 Cancelado</option>
+                </select>
+            </div>
         </div>
     `;
     }).join("");
 
-        list.querySelectorAll("[data-mark-seen]").forEach(btn => {
+    // Botão "Marcar como lido"
+    list.querySelectorAll("[data-mark-seen]").forEach(btn => {
         btn.addEventListener("click", async () => {
             const id = btn.dataset.markSeen;
             btn.disabled = true;
@@ -2912,8 +2920,6 @@ function renderAdminOrdersFromServer(ordersFromServer) {
                 });
                 if (!res.ok) throw new Error("Falha ao marcar.");
                 showToast("✅", "Pedido marcado como lido.");
-
-                // ✅ Recarrega do servidor (garante sincronização)
                 await loadAdminDataFromServer();
             } catch (err) {
                 showToast("Erro", err.message);
@@ -2922,6 +2928,45 @@ function renderAdminOrdersFromServer(ordersFromServer) {
             }
         });
     });
+
+    // Dropdown de estado
+    list.querySelectorAll("[data-order-status]").forEach(select => {
+        select.addEventListener("change", async e => {
+            const id = select.dataset.orderStatus;
+            const newStatus = e.target.value;
+
+            select.disabled = true;
+
+            try {
+                const res = await fetch(`/api/orders/${encodeURIComponent(id)}/status`, {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": authToken ? `Bearer ${authToken}` : ""
+                    },
+                    body: JSON.stringify({ status: newStatus })
+                });
+                if (!res.ok) throw new Error("Falha ao alterar.");
+                showToast("📦 Estado atualizado", `${id} → ${newStatus}`);
+                await loadAdminDataFromServer();
+            } catch (err) {
+                showToast("Erro", err.message);
+                select.disabled = false;
+            }
+        });
+    });
+}
+
+/* ---------- Helper: classe CSS do estado ---------- */
+function getStatusClass(status) {
+    const map = {
+        "Pendente":   "status-pending",
+        "Confirmado": "status-confirmed",
+        "Enviado":    "status-shipped",
+        "Entregue":   "status-delivered",
+        "Cancelado":  "status-cancelled"
+    };
+    return map[status] || "status-pending";
 }
 
 function startOrdersPolling() {

@@ -624,6 +624,38 @@ app.patch("/api/orders/:id/seen", (req, res) => {
     }
 });
 
+/* ==========================================================
+   API — ALTERAR ESTADO DO PEDIDO
+========================================================== */
+app.patch("/api/orders/:id/status", (req, res) => {
+    try {
+        const { status } = req.body;
+        const validStatuses = ["Pendente", "Confirmado", "Enviado", "Entregue", "Cancelado"];
+
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ error: "Estado inválido." });
+        }
+
+        const orders = readOrders();
+        const order = orders.find(o => o.id === req.params.id);
+
+        if (!order) {
+            return res.status(404).json({ error: "Pedido não encontrado." });
+        }
+
+        order.status = status;
+        order.updatedAt = new Date().toISOString();
+        saveOrders(orders);
+
+        console.log(`📦 Pedido ${order.id} → ${status}`);
+
+        res.json({ ok: true, id: order.id, status });
+    } catch (err) {
+        console.error("Erro a alterar estado:", err);
+        res.status(500).json({ error: "Erro no servidor." });
+    }
+});
+
 /* ----------------------------------------------------------
    ADMIN PADRÃO
 ---------------------------------------------------------- */
