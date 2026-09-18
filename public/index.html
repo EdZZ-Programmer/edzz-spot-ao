@@ -665,12 +665,15 @@
         </nav>
 
         <div id="adminProducts" class="admin-panel active">
-            <header class="admin-panel-header">
-                <div><h3>Produtos</h3><p>Adiciona e gere os computadores.</p></div>
-                <button id="openProductForm" class="btn btn-primary">+ Novo produto</button>
-            </header>
-            <div id="adminProductList" class="admin-list"></div>
+    <header class="admin-panel-header">
+        <div><h3>Produtos</h3><p>Adiciona e gere os computadores.</p></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button id="resetAllData" class="btn btn-secondary" type="button">🔄 Restaurar dados originais</button>
+            <button id="openProductForm" class="btn btn-primary">+ Novo produto</button>
         </div>
+    </header>
+    <div id="adminProductList" class="admin-list"></div>
+</div>
 
         <div id="adminServices" class="admin-panel">
             <header class="admin-panel-header">

@@ -1,43 +1,12 @@
 /* ==========================================================
-   EDZZ-SPOT AO — SCRIPT.JS
-   ÍNDICE
-   01. Configuração
-   02. Dados padrão
-   03. Estado
-   04. Helpers
-   05. Imagens
-   06. Intro
-   07. Tema
-   08. Menu mobile
-   09. Scroll reveal
-   10. Horário
-   11. Produtos
-   12. Carrinho
-   13. Checkout & fatura
-   14. Modais
-   15. Serviços
-   15.5 Foto do proprietário
-   15.6 Imagem do Hero
-   16. Agendamento
-   17. AUTENTICAÇÃO (servidor)
-   17.5 Recuperação de senha
-   18. Admin (produtos, serviços, jogos, programas)
-   18.5 Gestão de Clientes
-   18.6 Registo de Logins
-   18.7 Faturas
-   19. Contacto
-   20. Toast
-   21. Jogos & Programas
-   22. Favoritos (por utilizador)
-   22.5 Carrossel
-   22.6 Comentários (servidor)
-   22.7 Notificações de pedidos
-   23. Inicialização
+   EDZZ-SPOT AO — SCRIPT.JS (v2 — corrigido)
 ========================================================== */
 
 "use strict";
 
-/* 01 — CONFIGURAÇÃO */
+/* ==========================================================
+   01 — CONFIGURAÇÃO
+========================================================== */
 const STORAGE = {
     cart:         "edzzspot_cart",
     products:     "edzzspot_products",
@@ -55,10 +24,8 @@ const STORAGE = {
     comments:     "edzzspot_comments"
 };
 
-const ADMIN_CREDENTIALS = {
-    email: "admin@edzzspot.ao",
-    password: "EdZZ@1234"
-};
+// ⚠️ Aumenta isto SEMPRE que quiseres forçar reset dos dados em todos os browsers
+const DATA_VERSION = 2;
 
 const IMAGE_CONFIG = { maxWidth: 900, quality: 0.75 };
 
@@ -72,7 +39,9 @@ const BUSINESS_HOURS = {
     6: { open: "09:00", close: "15:00" }
 };
 
-/* 02 — DADOS PADRÃO */
+/* ==========================================================
+   02 — DADOS PADRÃO
+========================================================== */
 const DEFAULT_PRODUCTS = [
     { id: 1, name: "GameStation X", category: "gaming", price: 385000, processor: "Ryzen 7", ram: "32GB RAM", storage: "SSD 1TB", gpu: "RTX", description: "Computador Gaming de alto desempenho, ideal para jogos modernos, streaming, criação de conteúdo e produtividade.", image: "" },
     { id: 2, name: "GameBook Pro 15", category: "notebook", price: 465000, processor: "Core i7", ram: "16GB RAM", storage: "SSD 1TB", gpu: "RTX", description: "Notebook potente com ecrã de 15.6 polegadas, indicado para gaming, programação e trabalho profissional.", image: "" },
@@ -110,17 +79,61 @@ const DEFAULT_CAROUSEL = [
     { id: 4, tag: "SERVIÇO", title: 'Manutenção <span>Completa</span>', description: "Limpeza, otimização e diagnóstico do teu computador.", price: 8000, image: "" }
 ];
 
-/* 03 — ESTADO */
-let products     = loadData(STORAGE.products, DEFAULT_PRODUCTS);
-let cart         = loadData(STORAGE.cart, []);
-let orders       = loadData(STORAGE.orders, []);
-let appointments = loadData(STORAGE.appointments, []);
-let services     = loadData(STORAGE.services, DEFAULT_SERVICES);
-let games        = loadData(STORAGE.games, DEFAULT_GAMES);
-let software     = loadData(STORAGE.software, DEFAULT_SOFTWARE);
-let favorites    = [];
+/* ==========================================================
+   03 — HELPERS (carregam primeiro)
+========================================================== */
+const $ = id => document.getElementById(id);
+
+/**
+ * Carrega dados do localStorage com verificação de tipo.
+ * Rejeita: null literal, "null", "undefined", tipo errado.
+ */
+function loadData(key, fallback) {
+    try {
+        const raw = localStorage.getItem(key);
+
+        if (raw === null || raw === undefined) return fallback;
+        if (raw === "" || raw === "null" || raw === "undefined" || raw === "[]") {
+            console.warn(`⚠️ ${key} estava vazio/corrompido — a usar defaults`);
+            localStorage.removeItem(key);
+            return fallback;
+        }
+
+        const parsed = JSON.parse(raw);
+
+        if (parsed === null || parsed === undefined) return fallback;
+
+        // Se for um array vazio E o fallback tiver itens → usa fallback
+        if (Array.isArray(parsed) && parsed.length === 0 &&
+            Array.isArray(fallback) && fallback.length > 0) {
+            console.warn(`⚠️ ${key} era array vazio — a usar defaults`);
+            localStorage.removeItem(key);
+            return fallback;
+        }
+
+        if (Array.isArray(fallback) && !Array.isArray(parsed)) return fallback;
+
+        return parsed;
+    } catch (err) {
+        console.error("Erro a carregar:", key, err);
+        localStorage.removeItem(key);
+        return fallback;
+    }
+}
+
+/* ==========================================================
+   04 — ESTADO
+========================================================== */
+let products       = loadData(STORAGE.products, DEFAULT_PRODUCTS);
+let cart           = loadData(STORAGE.cart, []);
+let orders         = loadData(STORAGE.orders, []);
+let appointments   = loadData(STORAGE.appointments, []);
+let services       = loadData(STORAGE.services, DEFAULT_SERVICES);
+let games          = loadData(STORAGE.games, DEFAULT_GAMES);
+let software       = loadData(STORAGE.software, DEFAULT_SOFTWARE);
+let favorites      = [];
 let carouselSlides = loadData(STORAGE.carousel, DEFAULT_CAROUSEL);
-let comments     = [];
+let comments       = [];
 
 let currentFilter = "all";
 let currentSearch = "";
@@ -131,37 +144,66 @@ let carouselInterval = null;
 let currentUser = null;
 let authToken = localStorage.getItem("edzzspot_token") || null;
 
-// Notificações de pedidos (admin)
 let knownOrderIds = new Set();
 let notificationSound = true;
 let systemNotifications = false;
 let ordersPollTimer = null;
 
-// Recuperação de senha
 let recoveryEmail = "";
 
-/* Sincronização com o servidor */
 const SERVER_KEYS = {
-    "edzzspot_products":  "products",
-    "edzzspot_games":     "games",
-    "edzzspot_software":  "software",
-    "edzzspot_services":  "services",
-    "edzzspot_carousel":  "carousel"
+    "edzzspot_products": "products",
+    "edzzspot_games":    "games",
+    "edzzspot_software": "software",
+    "edzzspot_services": "services",
+    "edzzspot_carousel": "carousel"
 };
 
-/* 04 — HELPERS */
-const $ = id => document.getElementById(id);
+/* ==========================================================
+   05 — VERSÃO DOS DADOS (reset automático)
+========================================================== */
+function checkDataVersion() {
+    const stored = Number(localStorage.getItem("edzzspot_data_version") || 0);
 
-function loadData(key, fallback) {
-    try {
-        const raw = localStorage.getItem(key);
-        return raw ? JSON.parse(raw) : fallback;
-    } catch (err) {
-        console.error("Erro a carregar:", key, err);
-        return fallback;
+    if (stored < DATA_VERSION) {
+        console.warn(`🔄 A atualizar dados (v${stored} → v${DATA_VERSION})...`);
+
+        // Limpa arrays potencialmente corrompidos
+        [STORAGE.products, STORAGE.games, STORAGE.software, STORAGE.services, STORAGE.carousel]
+            .forEach(k => localStorage.removeItem(k));
+
+        // Recarrega em memória com defaults
+        products       = [...DEFAULT_PRODUCTS];
+        games          = [...DEFAULT_GAMES];
+        software       = [...DEFAULT_SOFTWARE];
+        services       = [...DEFAULT_SERVICES];
+        carouselSlides = [...DEFAULT_CAROUSEL];
+
+        localStorage.setItem("edzzspot_data_version", String(DATA_VERSION));
+        console.log("✅ Dados restaurados para os valores padrão");
+        return true;
     }
+    return false;
 }
 
+function forceResetAllData() {
+    Object.values(STORAGE).forEach(key => {
+        if (key === "edzzspot_theme") return;
+        localStorage.removeItem(key);
+    });
+    localStorage.setItem("edzzspot_data_version", String(DATA_VERSION));
+    products       = [...DEFAULT_PRODUCTS];
+    games          = [...DEFAULT_GAMES];
+    software       = [...DEFAULT_SOFTWARE];
+    services       = [...DEFAULT_SERVICES];
+    carouselSlides = [...DEFAULT_CAROUSEL];
+    cart           = [];
+    favorites      = [];
+}
+
+/* ==========================================================
+   06 — SAVE / FORMAT / MISC
+========================================================== */
 function saveData(key, data) {
     try {
         localStorage.setItem(key, JSON.stringify(data));
@@ -169,7 +211,6 @@ function saveData(key, data) {
         console.error("Erro a guardar local:", key, err);
         showToast("Erro", "Armazenamento do browser cheio.");
     }
-
     const serverKey = SERVER_KEYS[key];
     if (serverKey) pushToServer(serverKey, data);
 }
@@ -180,13 +221,13 @@ function formatKz(value) {
 }
 
 function formatPrice(value) {
-    if (!value || Number(value) === 0) {
-        return `<span class="card-price-ask">Sob consulta</span>`;
-    }
+    if (!value || Number(value) === 0) return `<span class="card-price-ask">Sob consulta</span>`;
     return formatKz(Number(value));
 }
 
-function generateId() { return Date.now() + Math.floor(Math.random() * 1000); }
+function generateId() {
+    return Date.now() + Math.floor(Math.random() * 1000);
+}
 
 function getCategoryName(category) {
     const names = {
@@ -205,9 +246,27 @@ function escapeHtml(value) {
         .replaceAll("'", "&#039;");
 }
 
-function setText(id, value) { const el = $(id); if (el) el.textContent = value; }
-function setVal(id, value) { const el = $(id); if (el) el.value = value; }
+function setText(id, value) {
+    const el = $(id);
+    if (el) el.textContent = value;
+}
 
+function setVal(id, value) {
+    const el = $(id);
+    if (el) el.value = value;
+}
+
+function safeCall(name, fn) {
+    try {
+        fn();
+    } catch (err) {
+        console.error(`❌ Erro em ${name}:`, err);
+    }
+}
+
+/* ==========================================================
+   07 — SYNC SERVIDOR
+========================================================== */
 async function syncFromServer() {
     try {
         const res = await fetch(window.location.origin + "/api/store");
@@ -215,14 +274,20 @@ async function syncFromServer() {
 
         const store = await res.json() || {};
 
-        if (Array.isArray(store.products))   products      = store.products;
-        if (Array.isArray(store.games))      games         = store.games;
-        if (Array.isArray(store.software))   software      = store.software;
-        if (Array.isArray(store.services))   services      = store.services;
-        if (Array.isArray(store.carousel))   carouselSlides = store.carousel;
+        // Só substitui se o servidor tiver dados REAIS (não array vazio).
+        // Se a chave não existir → servidor nunca foi configurado → mantém default.
+        if (Array.isArray(store.products) && store.products.length > 0) products       = store.products;
+        if (Array.isArray(store.games)    && store.games.length > 0)    games          = store.games;
+        if (Array.isArray(store.software) && store.software.length > 0) software       = store.software;
+        if (Array.isArray(store.services) && store.services.length > 0) services       = store.services;
+        if (Array.isArray(store.carousel) && store.carousel.length > 0) carouselSlides = store.carousel;
 
-        if (store.heroImage)  localStorage.setItem(STORAGE.heroImage, store.heroImage);
-        if (store.ownerPhoto) localStorage.setItem(STORAGE.ownerPhoto, store.ownerPhoto);
+        if (typeof store.heroImage === "string" && store.heroImage) {
+            localStorage.setItem(STORAGE.heroImage, store.heroImage);
+        }
+        if (typeof store.ownerPhoto === "string" && store.ownerPhoto) {
+            localStorage.setItem(STORAGE.ownerPhoto, store.ownerPhoto);
+        }
 
         console.log("✅ Dados sincronizados com o servidor");
     } catch (err) {
@@ -238,12 +303,15 @@ function pushToServer(key, value) {
     }).catch(err => console.warn("Erro a enviar para o servidor:", err));
 }
 
-/* 05 — IMAGENS */
+/* ==========================================================
+   08 — IMAGENS
+========================================================== */
 function readImageFile(file) {
     return new Promise((resolve, reject) => {
         if (!file) return resolve("");
-        if (!file.type.startsWith("image/")) return reject(new Error("Ficheiro inválido. Escolhe uma imagem."));
-
+        if (!file.type.startsWith("image/")) {
+            return reject(new Error("Ficheiro inválido. Escolhe uma imagem."));
+        }
         const reader = new FileReader();
         reader.onload = () => {
             const img = new Image();
@@ -259,7 +327,9 @@ function readImageFile(file) {
                     canvas.height = height;
                     canvas.getContext("2d").drawImage(img, 0, 0, width, height);
                     resolve(canvas.toDataURL("image/jpeg", IMAGE_CONFIG.quality));
-                } catch { reject(new Error("Erro ao processar a imagem.")); }
+                } catch {
+                    reject(new Error("Erro ao processar a imagem."));
+                }
             };
             img.onerror = () => reject(new Error("Imagem inválida."));
             img.src = reader.result;
@@ -273,11 +343,9 @@ function previewImage(fileInputId, previewId) {
     const input = $(fileInputId);
     const preview = $(previewId);
     if (!input || !preview) return;
-
     input.addEventListener("change", () => {
         const file = input.files?.[0];
         if (!file) { preview.innerHTML = ""; return; }
-
         const reader = new FileReader();
         reader.onload = e => {
             preview.innerHTML = `<img src="${e.target.result}" alt="Pré-visualização"><span>Imagem selecionada</span>`;
@@ -286,7 +354,9 @@ function previewImage(fileInputId, previewId) {
     });
 }
 
-/* 06 — INTRO */
+/* ==========================================================
+   09 — INTRO
+========================================================== */
 function startIntro() {
     const screen = $("introScreen");
     const text = $("introLoadingText");
@@ -313,16 +383,16 @@ function startIntro() {
     }, 2800);
 }
 
-/* 07 — TEMA */
+/* ==========================================================
+   10 — TEMA
+========================================================== */
 function setupThemeToggle() {
     const toggle = $("themeToggle");
     if (!toggle) return;
-
     if (localStorage.getItem(STORAGE.theme) === "light") {
         document.body.classList.add("light-mode");
         toggle.textContent = "☀️";
     }
-
     toggle.addEventListener("click", () => {
         document.body.classList.toggle("light-mode");
         const light = document.body.classList.contains("light-mode");
@@ -331,63 +401,102 @@ function setupThemeToggle() {
     });
 }
 
-/* 08 — MENU MOBILE */
+/* ==========================================================
+   11 — MENU MOBILE
+========================================================== */
 function setupMobileMenu() {
     const btn = $("mobileMenuButton");
     const nav = $("mainNav");
     if (!btn || !nav) return;
-
     btn.addEventListener("click", () => nav.classList.toggle("active"));
-
     document.querySelectorAll(".nav-link").forEach(link =>
         link.addEventListener("click", () => nav.classList.remove("active"))
     );
 }
 
-/* 09 — SCROLL REVEAL */
-const revealObserver = new IntersectionObserver(
-    entries => entries.forEach(entry => {
-        if (entry.isIntersecting) {
-            entry.target.classList.add("visible");
-            revealObserver.unobserve(entry.target);
-        }
-    }),
-    { threshold: 0.1 }
-);
+/* ==========================================================
+   12 — SCROLL REVEAL
+   Abordagem por scroll: usa getBoundingClientRect() que
+   funciona em qualquer browser / proxy / túnel.
+========================================================== */
+function checkReveals() {
+    const vh = window.innerHeight;
+    const triggers = document.querySelectorAll(".reveal:not(.visible)");
 
-function observeReveals() {
-    document.querySelectorAll(".reveal").forEach(el => revealObserver.observe(el));
+    triggers.forEach(el => {
+        const rect = el.getBoundingClientRect();
+        // Elemento está a entrar na viewport (com margem de 80px)
+        if (rect.top < vh - 80 && rect.bottom > 0) {
+            el.classList.add("visible");
+        }
+    });
 }
 
-/* 10 — HORÁRIO */
+function observeReveals() {
+    // Corre imediatamente + 3 tentativas espaçadas
+    // (para apanhar elementos que renderizam tarde)
+    checkReveals();
+    setTimeout(checkReveals, 100);
+    setTimeout(checkReveals, 400);
+    setTimeout(checkReveals, 1200);
+}
+
+// Bind scroll + resize (só uma vez)
+if (!window.__revealBound) {
+    window.__revealBound = true;
+
+    let ticking = false;
+    window.addEventListener("scroll", () => {
+        if (ticking) return;
+        ticking = true;
+        window.requestAnimationFrame(() => {
+            checkReveals();
+            ticking = false;
+        });
+    }, { passive: true });
+
+    window.addEventListener("resize", checkReveals);
+}
+
+/* ==========================================================
+   13 — HORÁRIO
+========================================================== */
 function updateOpenStatus() {
     const el = $("openStatus");
     if (!el) return;
 
-    const now = new Date();
-    const hours = BUSINESS_HOURS[now.getDay()];
+    try {
+        const now = new Date();
+        const hours = BUSINESS_HOURS[now.getDay()];
+        if (!hours) {
+            el.textContent = "Fechado hoje";
+            el.className = "open-status is-closed";
+            return;
+        }
+        const current = now.getHours() * 60 + now.getMinutes();
+        const [oh, om] = hours.open.split(":").map(Number);
+        const [ch, cm] = hours.close.split(":").map(Number);
+        const openMin = oh * 60 + om;
+        const closeMin = ch * 60 + cm;
+        const isOpen = current >= openMin && current < closeMin;
 
-    if (!hours) {
-        el.textContent = "Fechado hoje";
-        el.className = "open-status is-closed";
-        return;
+        el.textContent = isOpen
+            ? `Aberto agora · até ${hours.close}`
+            : `Fechado · abre às ${hours.open}`;
+        el.className = `open-status ${isOpen ? "is-open" : "is-closed"}`;
+    } catch (err) {
+        console.error("Erro updateOpenStatus:", err);
+        el.textContent = "—";
     }
-
-    const current = now.getHours() * 60 + now.getMinutes();
-    const [oh, om] = hours.open.split(":").map(Number);
-    const [ch, cm] = hours.close.split(":").map(Number);
-    const isOpen = current >= (oh * 60 + om) && current < (ch * 60 + cm);
-
-    el.textContent = isOpen
-        ? `Aberto agora · até ${hours.close}`
-        : `Fechado · abre às ${hours.open}`;
-    el.className = `open-status ${isOpen ? "is-open" : "is-closed"}`;
 }
 
-/* 11 — PRODUTOS */
+/* ==========================================================
+   14 — PRODUTOS
+========================================================== */
 function renderProducts() {
     const grid = $("productsGrid");
     if (!grid) return;
+    if (!Array.isArray(products)) products = [...DEFAULT_PRODUCTS];
 
     const search = currentSearch.toLowerCase().trim();
     const filtered = products.filter(p => {
@@ -403,7 +512,6 @@ function renderProducts() {
         grid.innerHTML = `<div class="empty-result"><h3>Nenhum produto encontrado.</h3><p>Tenta outra pesquisa ou categoria.</p></div>`;
         return;
     }
-
     grid.innerHTML = filtered.map(productCardTemplate).join("");
     observeReveals();
 }
@@ -451,7 +559,6 @@ function setupFilters() {
             renderProducts();
         });
     });
-
     $("productSearch")?.addEventListener("input", e => {
         currentSearch = e.target.value;
         renderProducts();
@@ -468,7 +575,6 @@ function setupProductClickHandlers() {
         if (addBtn)   addToCart(Number(addBtn.dataset.addProduct), "product");
         if (viewBtn)  openProduct(Number(viewBtn.dataset.viewProduct));
         if (favBtn)   toggleFavorite(Number(favBtn.dataset.favorite));
-
         if (modalAdd) {
             addToCart(Number(modalAdd.dataset.modalAdd), "product");
             closeModal("productModal");
@@ -479,7 +585,6 @@ function setupProductClickHandlers() {
 function openProduct(id) {
     const product = products.find(p => p.id === id);
     if (!product) return;
-
     const container = $("productModalContent");
     if (!container) return;
 
@@ -508,7 +613,9 @@ function openProduct(id) {
     openModal("productModal");
 }
 
-/* 12 — CARRINHO */
+/* ==========================================================
+   15 — CARRINHO
+========================================================== */
 function findAnyItemById(id) {
     return products.find(p => p.id === id)
         || games.find(g => g.id === id)
@@ -516,9 +623,6 @@ function findAnyItemById(id) {
         || services.find(sv => sv.id === id);
 }
 
-/* ==========================================================
-   FAVORITOS POR UTILIZADOR
-========================================================== */
 function favoritesKey() {
     if (currentUser) return `edzzspot_favorites_user_${currentUser.id}`;
     return "edzzspot_favorites_guest";
@@ -526,10 +630,15 @@ function favoritesKey() {
 
 function loadFavorites() {
     favorites = loadData(favoritesKey(), []);
+    if (!Array.isArray(favorites)) favorites = [];
 }
 
 function saveFavorites() {
     saveData(favoritesKey(), favorites);
+}
+
+function updateFavoritesCount() {
+    setText("favoritesCount", favorites.length);
 }
 
 function addToCart(id, type = "product") {
@@ -537,8 +646,11 @@ function addToCart(id, type = "product") {
     if (!product) return;
 
     const existing = cart.find(item => item.id === id);
-    if (existing) existing.quantity++;
-    else cart.push({ ...product, quantity: 1, type });
+    if (existing) {
+        existing.quantity++;
+    } else {
+        cart.push({ ...product, quantity: 1, type });
+    }
 
     saveData(STORAGE.cart, cart);
     renderCart();
@@ -549,7 +661,6 @@ function addToCart(id, type = "product") {
         void btn.offsetWidth;
         btn.classList.add("bounce");
     }
-
     showToast("Adicionado ao carrinho", `${product.name} foi adicionado.`);
 }
 
@@ -566,7 +677,6 @@ function renderCart() {
     } else {
         empty.classList.remove("active");
         footer.style.display = "block";
-
         container.innerHTML = cart.map(item => `
             <div class="cart-item">
                 <div class="cart-item-image">
@@ -604,12 +714,10 @@ function setupCartControls() {
         const plus = e.target.closest("[data-cart-plus]");
         const minus = e.target.closest("[data-cart-minus]");
         const remove = e.target.closest("[data-cart-remove]");
-
         if (plus)   changeQuantity(Number(plus.dataset.cartPlus), 1);
         if (minus)  changeQuantity(Number(minus.dataset.cartMinus), -1);
         if (remove) removeFromCart(Number(remove.dataset.cartRemove));
     });
-
     $("openCart")?.addEventListener("click", openCart);
     $("closeCart")?.addEventListener("click", closeCart);
     $("cartOverlay")?.addEventListener("click", closeCart);
@@ -646,7 +754,9 @@ function closeCart() {
     document.body.classList.remove("no-scroll");
 }
 
-/* 13 — CHECKOUT & FATURA */
+/* ==========================================================
+   16 — CHECKOUT
+========================================================== */
 function setupCheckout() {
     $("checkoutButton")?.addEventListener("click", () => {
         if (!cart.length) return showToast("Carrinho vazio", "Adiciona pelo menos um produto.");
@@ -704,9 +814,7 @@ function showPurchaseAnimation(order) {
     closeModal("checkoutModal");
     const anim = $("successAnimation");
     if (!anim) return;
-
     anim.classList.add("active");
-
     setTimeout(() => {
         anim.classList.remove("active");
         cart = [];
@@ -738,7 +846,9 @@ function fillInvoice(order) {
     }
 }
 
-/* 14 — MODAIS */
+/* ==========================================================
+   17 — MODAIS
+========================================================== */
 function openModal(id) {
     const m = $(id);
     if (!m) return;
@@ -791,10 +901,13 @@ function setupModals() {
     });
 }
 
-/* 15 — SERVIÇOS */
+/* ==========================================================
+   18 — SERVIÇOS
+========================================================== */
 function renderServices() {
     const grid = $("servicesGrid");
     if (!grid) return;
+    if (!Array.isArray(services)) services = [...DEFAULT_SERVICES];
 
     grid.innerHTML = services.map((s, i) => `
         <div class="service-card reveal" data-service="${escapeHtml(s.name)}">
@@ -816,7 +929,6 @@ function renderServices() {
         </div>
     `).join("");
 
-    // Botão "Solicitar" — adiciona ao carrinho
     grid.querySelectorAll("[data-add-service]").forEach(btn => {
         btn.addEventListener("click", e => {
             e.stopPropagation();
@@ -824,39 +936,36 @@ function renderServices() {
         });
     });
 
-    // Botão "Agendar" — abre modal pré-preenchido
     grid.querySelectorAll("[data-schedule-service]").forEach(btn => {
         btn.addEventListener("click", e => {
             e.stopPropagation();
             const serviceName = btn.dataset.scheduleService;
             const msgField = $("appointmentMessage");
-            if (msgField) {
-                msgField.value = `Serviço pretendido: ${serviceName}`;
-            }
+            if (msgField) msgField.value = `Serviço pretendido: ${serviceName}`;
             openModal("appointmentModal");
         });
     });
 
-    // Clique no card (fora dos botões) — scroll para contacto com serviço pré-selecionado
     grid.querySelectorAll(".service-card").forEach(card => {
         card.addEventListener("click", e => {
             if (e.target.closest("[data-add-service]")) return;
             if (e.target.closest("[data-schedule-service]")) return;
-
             const name = card.dataset.service;
             if ($("service")) $("service").value = name;
             document.querySelector("#contacto")?.scrollIntoView({ behavior: "smooth" });
         });
     });
+    observeReveals();
 }
 
-/* 15.5 — FOTO DO PROPRIETÁRIO */
+/* ==========================================================
+   19 — FOTO PROPRIETÁRIO / HERO
+========================================================== */
 function loadOwnerPhoto() {
     const photo = localStorage.getItem(STORAGE.ownerPhoto);
     const img = $("ownerPhoto");
     const placeholder = $("ownerPlaceholder");
     if (!img || !placeholder) return;
-
     if (photo) {
         img.src = photo;
         img.hidden = false;
@@ -867,7 +976,6 @@ function loadOwnerPhoto() {
     }
 }
 
-/* 15.6 — IMAGEM DO HERO */
 function loadHeroImage() {
     const image = localStorage.getItem(STORAGE.heroImage);
     const imgEl = $("heroImage");
@@ -883,7 +991,6 @@ function loadHeroImage() {
         imgEl.src = "";
         animEl.style.display = "";
     }
-
     updateHeroAdminPreview(image);
 }
 
@@ -903,8 +1010,9 @@ function updateHeroAdminPreview(image) {
             if (placeholder) placeholder.hidden = false;
         }
     }
-
-    if (urlInput) urlInput.value = image && !image.startsWith("data:") ? image : "";
+    if (urlInput) {
+        urlInput.value = image && !image.startsWith("data:") ? image : "";
+    }
 }
 
 function setupHeroImageAdmin() {
@@ -929,17 +1037,13 @@ function setupHeroImageAdmin() {
     saveBtn?.addEventListener("click", async () => {
         const file = fileInput?.files?.[0];
         const url = urlInput?.value.trim();
-
         try {
             let image = url || "";
             if (file) image = await readImageFile(file);
-
             if (!image) return showToast("Sem imagem", "Escolhe uma imagem ou cola um URL.");
-
             localStorage.setItem(STORAGE.heroImage, image);
             pushToServer("heroImage", image);
             loadHeroImage();
-
             if (fileInput) fileInput.value = "";
             if ($("heroImagePreview")) $("heroImagePreview").innerHTML = "";
             showToast("Guardado", "Imagem do hero actualizada.");
@@ -990,7 +1094,6 @@ function setupOwnerPhotoAdmin() {
     saveBtn?.addEventListener("click", async () => {
         const file = fileInput?.files?.[0];
         if (!file) return showToast("Sem foto", "Escolhe uma imagem primeiro.");
-
         try {
             const image = await readImageFile(file);
             localStorage.setItem(STORAGE.ownerPhoto, image);
@@ -1014,12 +1117,13 @@ function setupOwnerPhotoAdmin() {
     });
 }
 
-/* 16 — AGENDAMENTO */
+/* ==========================================================
+   20 — AGENDAMENTO
+========================================================== */
 function setupAppointment() {
     $("appointmentForm")?.addEventListener("submit", e => {
         e.preventDefault();
         const form = new FormData(e.target);
-
         appointments.push({
             id: "EDZ-S-" + Date.now(),
             date: new Date().toISOString(),
@@ -1032,7 +1136,6 @@ function setupAppointment() {
             service: "Serviço ao domicílio",
             status: "Pendente"
         });
-
         saveData(STORAGE.appointments, appointments);
         closeModal("appointmentModal");
         e.target.reset();
@@ -1040,7 +1143,9 @@ function setupAppointment() {
     });
 }
 
-/* 17 — AUTENTICAÇÃO */
+/* ==========================================================
+   21 — AUTENTICAÇÃO
+========================================================== */
 const API_URL = window.location.origin;
 
 async function apiRequest(endpoint, options = {}) {
@@ -1052,7 +1157,6 @@ async function apiRequest(endpoint, options = {}) {
             ...(options.headers || {})
         }
     });
-
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || "Erro de rede.");
     return data;
@@ -1064,7 +1168,6 @@ function saveSession(token, user) {
     localStorage.setItem("edzzspot_token", token);
     localStorage.setItem("edzzspot_user", JSON.stringify(user));
     updateUserUI();
-
     if (user.role === "admin") {
         setTimeout(() => {
             setupNotificationsControls();
@@ -1109,29 +1212,22 @@ function updateUserUI() {
         btn?.classList.remove("logged-in");
     }
 
-    // Recarrega favoritos do utilizador (ou guest)
     loadFavorites();
     updateFavoritesCount();
-    renderProducts();
-
-    if ($("commentsList")) renderComments();
+    safeCall("renderProducts(updateUserUI)", renderProducts);
+    if ($("commentsList")) safeCall("renderComments(updateUserUI)", renderComments);
 }
 
 function switchAuthTab(tab) {
     document.querySelectorAll(".auth-tab").forEach(t =>
         t.classList.toggle("active", t.dataset.authTab === tab)
     );
-
     $("loginForm")?.classList.toggle("active", tab === "login");
     $("registerForm")?.classList.toggle("active", tab === "register");
-
     setText("authTitle", tab === "login" ? "Entrar na conta" : "Criar conta");
     setText("authSubtitle",
-        tab === "login"
-            ? "Acede aos teus pedidos e serviços."
-            : "Cria a tua conta em segundos."
+        tab === "login" ? "Acede aos teus pedidos e serviços." : "Cria a tua conta em segundos."
     );
-
     const msg = $("authMessage");
     if (msg) { msg.textContent = ""; msg.className = "auth-demo"; }
 }
@@ -1145,10 +1241,8 @@ function showAuthMessage(text, type = "") {
 
 async function handleRegister(e) {
     e.preventDefault();
-
     const btn = $("registerSubmitBtn");
     if (btn) { btn.disabled = true; btn.textContent = "A criar conta..."; }
-
     try {
         const form = new FormData(e.target);
         const data = await apiRequest("/api/auth/register", {
@@ -1162,16 +1256,13 @@ async function handleRegister(e) {
                 securityAnswer: form.get("registerAnswer")
             })
         });
-
         saveSession(data.token, data.user);
         showAuthMessage("Conta criada! Bem-vindo 🎉", "success");
-
         setTimeout(() => {
             closeModal("loginModal");
             e.target.reset();
             showToast("Bem-vindo!", `Olá ${data.user.name.split(" ")[0]}!`);
         }, 900);
-
     } catch (err) {
         showAuthMessage(err.message, "error");
     } finally {
@@ -1181,10 +1272,8 @@ async function handleRegister(e) {
 
 async function handleLogin(e) {
     e.preventDefault();
-
     const btn = $("loginSubmitBtn");
     if (btn) { btn.disabled = true; btn.textContent = "A entrar..."; }
-
     try {
         const form = new FormData(e.target);
         const data = await apiRequest("/api/auth/login", {
@@ -1194,18 +1283,14 @@ async function handleLogin(e) {
                 password: form.get("loginPassword")
             })
         });
-
         saveSession(data.token, data.user);
         showAuthMessage("Login realizado ✓", "success");
-
         setTimeout(() => {
             closeModal("loginModal");
             e.target.reset();
-
             if (data.user.role === "admin") openAdmin();
             else openProfileModal();
         }, 800);
-
     } catch (err) {
         showAuthMessage(err.message, "error");
     } finally {
@@ -1215,17 +1300,12 @@ async function handleLogin(e) {
 
 function openProfileModal() {
     if (!currentUser) return;
-
     setText("profileName", currentUser.name.split(" ")[0]);
     setText("profileEmail", currentUser.email);
     setText("profilePhone", currentUser.phone || "—");
-    setText("profileRole",
-        currentUser.role === "admin" ? "Administrador" : "Cliente"
-    );
-
+    setText("profileRole", currentUser.role === "admin" ? "Administrador" : "Cliente");
     const adminBtn = $("openAdminFromProfile");
     if (adminBtn) adminBtn.style.display = currentUser.role === "admin" ? "inline-flex" : "none";
-
     openModal("profileModal");
 }
 
@@ -1238,13 +1318,11 @@ function handleLogout() {
 
 async function verifySession() {
     if (!authToken) return;
-
     try {
         const data = await apiRequest("/api/auth/me");
         currentUser = data.user;
         localStorage.setItem("edzzspot_user", JSON.stringify(data.user));
         updateUserUI();
-
         if (currentUser.role === "admin") {
             setTimeout(() => {
                 setupNotificationsControls();
@@ -1263,7 +1341,6 @@ function setupAuth() {
     document.querySelectorAll(".auth-tab").forEach(tab => {
         tab.addEventListener("click", () => switchAuthTab(tab.dataset.authTab));
     });
-
     $("loginForm")?.addEventListener("submit", handleLogin);
     $("registerForm")?.addEventListener("submit", handleRegister);
 
@@ -1285,30 +1362,28 @@ function setupAuth() {
         openAdmin();
     });
 
-    // Recuperação de senha
     $("openRecover")?.addEventListener("click", () => {
         closeModal("loginModal");
         resetRecoverForm();
         openModal("recoverModal");
     });
-
     $("backToLogin")?.addEventListener("click", () => {
         closeModal("recoverModal");
         switchAuthTab("login");
         openModal("loginModal");
     });
-
     $("backToStep1")?.addEventListener("click", () => {
         $("recoverStep2")?.classList.remove("active");
         $("recoverStep1")?.classList.add("active");
         showRecoverMessage("");
     });
-
     $("recoverStep1")?.addEventListener("submit", handleRecoverStep1);
     $("recoverStep2")?.addEventListener("submit", handleRecoverStep2);
 }
 
-/* 17.5 — RECUPERAÇÃO DE SENHA */
+/* ==========================================================
+   22 — RECUPERAÇÃO
+========================================================== */
 function resetRecoverForm() {
     $("recoverStep1")?.reset();
     $("recoverStep2")?.reset();
@@ -1328,27 +1403,21 @@ function showRecoverMessage(text, type = "") {
 
 async function handleRecoverStep1(e) {
     e.preventDefault();
-
     const btn = $("recoverStep1Btn");
     if (btn) { btn.disabled = true; btn.textContent = "A verificar..."; }
-
     try {
         const form = new FormData(e.target);
         const email = form.get("recoverEmail");
-
         const data = await apiRequest("/api/auth/recover-question", {
             method: "POST",
             body: JSON.stringify({ email })
         });
-
         recoveryEmail = email;
         $("recoverQuestionBox").textContent = data.question;
         setText("recoverSubtitle", "Responde à tua pergunta de segurança.");
         showRecoverMessage("");
-
         $("recoverStep1").classList.remove("active");
         $("recoverStep2").classList.add("active");
-
     } catch (err) {
         showRecoverMessage(err.message, "error");
     } finally {
@@ -1358,26 +1427,17 @@ async function handleRecoverStep1(e) {
 
 async function handleRecoverStep2(e) {
     e.preventDefault();
-
     const btn = $("recoverStep2Btn");
     if (btn) { btn.disabled = true; btn.textContent = "A alterar..."; }
-
     try {
         const form = new FormData(e.target);
         const answer = form.get("recoverAnswer");
         const newPassword = form.get("recoverNewPassword");
-
         await apiRequest("/api/auth/recover", {
             method: "POST",
-            body: JSON.stringify({
-                email: recoveryEmail,
-                answer,
-                newPassword
-            })
+            body: JSON.stringify({ email: recoveryEmail, answer, newPassword })
         });
-
         showRecoverMessage("Palavra-passe alterada com sucesso!", "success");
-
         setTimeout(() => {
             closeModal("recoverModal");
             switchAuthTab("login");
@@ -1385,7 +1445,6 @@ async function handleRecoverStep2(e) {
             resetRecoverForm();
             showToast("Sucesso", "Já podes entrar com a nova palavra-passe.");
         }, 1500);
-
     } catch (err) {
         showRecoverMessage(err.message, "error");
     } finally {
@@ -1393,7 +1452,9 @@ async function handleRecoverStep2(e) {
     }
 }
 
-/* 18 — ADMIN */
+/* ==========================================================
+   23 — ADMIN
+========================================================== */
 function isAdmin() { return currentUser?.role === "admin"; }
 
 function openAdmin() {
@@ -1403,7 +1464,6 @@ function openAdmin() {
         return;
     }
     openModal("adminModal");
-    // ✅ Busca sempre fresh do servidor
     loadAdminDataFromServer();
 }
 
@@ -1412,13 +1472,11 @@ function setupAdminTabs() {
         tab.addEventListener("click", () => {
             document.querySelectorAll(".admin-tab").forEach(t => t.classList.remove("active"));
             document.querySelectorAll(".admin-panel").forEach(p => p.classList.remove("active"));
-
             tab.classList.add("active");
             const key = tab.dataset.adminTab;
             const panelId = "admin" + key.charAt(0).toUpperCase() + key.slice(1);
             $(panelId)?.classList.add("active");
 
-            // ✅ Recarrega dados específicos de cada tab
             if (key === "clients") loadClients();
             if (key === "orders") checkForNewOrders();
             if (key === "logins") loadLogins();
@@ -1432,18 +1490,13 @@ function setupAdminTabs() {
     });
 }
 
-function renderAdmin() {
-    // ✅ Busca tudo do servidor (em vez de usar localStorage local)
-    loadAdminDataFromServer();
-}
+function renderAdmin() { loadAdminDataFromServer(); }
 
 async function loadAdminDataFromServer() {
     try {
-        // Pedidos
         const ordersRes = await fetch("/api/orders");
         const ordersFromServer = ordersRes.ok ? await ordersRes.json() : [];
 
-        // Clientes (via admin)
         let clients = [];
         try {
             const usersRes = await fetch("/api/users", {
@@ -1453,50 +1506,37 @@ async function loadAdminDataFromServer() {
             clients = users.filter(u => u.role !== "admin");
         } catch { /* ignora */ }
 
-        // Atualiza estado local
-        orders = ordersFromServer;
-
-        // Calcula totais
+        orders = Array.isArray(ordersFromServer) ? ordersFromServer : [];
         const revenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
 
-        // Atualiza contadores
         setText("adminProductCount", products.length);
         setText("adminOrderCount", orders.length);
         setText("adminRevenue", formatKz(revenue));
         setText("adminClientCount", clients.length);
 
-        // Renderiza listas
         renderAdminProducts();
         renderAdminServices();
         renderAdminGames();
         renderAdminSoftware();
         renderAdminCarousel();
         renderAdminOrdersFromServer(orders);
-
         updateAdminOrderBadge(orders);
-
     } catch (err) {
         console.error("Erro a carregar admin:", err);
     }
 }
 
-/* ==========================================================
-   18.5 — GESTÃO DE CLIENTES
-========================================================== */
+/* --------- Clientes --------- */
 async function loadClients() {
     const list = $("adminClientList");
     if (!list) return;
-
     list.innerHTML = `<div class="admin-list-item"><div><h4>A carregar...</h4></div></div>`;
-
     try {
         const res = await fetch("/api/users", {
             headers: { "Authorization": `Bearer ${authToken}` }
         });
-
         if (!res.ok) throw new Error("Sem permissão.");
         const users = await res.json();
-
         const clients = users.filter(u => u.role !== "admin");
 
         if (!clients.length) {
@@ -1533,13 +1573,10 @@ async function loadClients() {
             btn.addEventListener("click", () => {
                 setVal("adminResetUserId", btn.dataset.resetPassword);
                 setVal("adminResetPassword", "");
-                setText("adminResetUserInfo",
-                    `${btn.dataset.userName} (${btn.dataset.userEmail})`
-                );
+                setText("adminResetUserInfo", `${btn.dataset.userName} (${btn.dataset.userEmail})`);
                 openModal("adminResetPasswordModal");
             });
         });
-
     } catch (err) {
         list.innerHTML = `<div class="admin-list-item"><div><h4>Erro</h4><p>${escapeHtml(err.message)}</p></div></div>`;
     }
@@ -1550,15 +1587,12 @@ function setupClientsAdmin() {
 
     $("adminResetForm")?.addEventListener("submit", async e => {
         e.preventDefault();
-
         const userId = $("adminResetUserId")?.value;
         const newPassword = $("adminResetPassword")?.value;
-
         if (!userId || !newPassword) return;
         if (newPassword.length < 6) {
             return showToast("Erro", "A senha precisa de pelo menos 6 caracteres.");
         }
-
         try {
             const res = await fetch("/api/auth/admin-reset", {
                 method: "POST",
@@ -1568,17 +1602,14 @@ function setupClientsAdmin() {
                 },
                 body: JSON.stringify({ userId, newPassword })
             });
-
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || "Erro.");
-
             try {
                 await navigator.clipboard.writeText(newPassword);
                 showToast("✅ Senha redefinida", "Copiada para o clipboard. Entrega ao cliente.");
             } catch {
                 showToast("✅ Senha redefinida", `Nova senha: ${newPassword}`);
             }
-
             closeModal("adminResetPasswordModal");
         } catch (err) {
             showToast("Erro", err.message);
@@ -1586,28 +1617,21 @@ function setupClientsAdmin() {
     });
 }
 
-/* ==========================================================
-   18.6 — REGISTO DE LOGINS
-========================================================== */
+/* --------- Logins --------- */
 async function loadLogins() {
     const list = $("adminLoginList");
     if (!list) return;
-
     list.innerHTML = `<div class="admin-list-item"><div><h4>A carregar...</h4></div></div>`;
-
     try {
         const res = await fetch("/api/logins", {
             headers: { "Authorization": `Bearer ${authToken}` }
         });
-
         if (!res.ok) throw new Error("Sem permissão.");
         const logins = await res.json();
-
         if (!logins.length) {
             list.innerHTML = `<div class="admin-list-item"><div><h4>Ainda não há registos.</h4></div></div>`;
             return;
         }
-
         list.innerHTML = logins.map(l => `
             <div class="admin-list-item ${l.success ? "" : "is-new"}">
                 <div class="admin-item-info">
@@ -1628,34 +1652,26 @@ async function loadLogins() {
                 </div>
             </div>
         `).join("");
-
     } catch (err) {
         list.innerHTML = `<div class="admin-list-item"><div><h4>Erro</h4><p>${escapeHtml(err.message)}</p></div></div>`;
     }
 }
 
-/* ==========================================================
-   18.7 — FATURAS
-========================================================== */
+/* --------- Faturas --------- */
 async function loadInvoices() {
     const list = $("adminInvoiceList");
     if (!list) return;
-
     list.innerHTML = `<div class="admin-list-item"><div><h4>A carregar...</h4></div></div>`;
-
     try {
         const res = await fetch("/api/invoices", {
             headers: { "Authorization": `Bearer ${authToken}` }
         });
-
         if (!res.ok) throw new Error("Sem permissão.");
         const invoices = await res.json();
-
         if (!invoices.length) {
             list.innerHTML = `<div class="admin-list-item"><div><h4>Nenhuma fatura ainda.</h4></div></div>`;
             return;
         }
-
         list.innerHTML = invoices.map(inv => `
             <div class="admin-list-item">
                 <div class="admin-item-info">
@@ -1680,7 +1696,6 @@ async function loadInvoices() {
                 if (inv) showInvoiceDetails(inv);
             });
         });
-
     } catch (err) {
         list.innerHTML = `<div class="admin-list-item"><div><h4>Erro</h4><p>${escapeHtml(err.message)}</p></div></div>`;
     }
@@ -1704,15 +1719,13 @@ function showInvoiceDetails(invoice) {
             </div>
         `).join("");
     }
-
     openModal("invoiceModal");
 }
 
-/* ---- PRODUTOS ---- */
+/* --------- Produtos admin --------- */
 function renderAdminProducts() {
     const list = $("adminProductList");
     if (!list) return;
-
     list.innerHTML = products.map(p => `
         <div class="admin-list-item">
             <div class="admin-item-info">
@@ -1788,7 +1801,6 @@ function setupProductAdmin() {
 function editProduct(id) {
     const p = products.find(x => x.id === id);
     if (!p) return;
-
     setVal("productId", p.id);
     setVal("productName", p.name);
     setVal("productCategory", p.category);
@@ -1800,11 +1812,9 @@ function editProduct(id) {
     setVal("productGpu", p.gpu);
     setVal("productImage", p.image?.startsWith("data:") ? "" : (p.image || ""));
     setVal("productImageFile", "");
-
     if ($("productImagePreview")) {
         $("productImagePreview").innerHTML = p.image
-            ? `<img src="${escapeHtml(p.image)}" alt="Pré-visualização"><span>Imagem atual</span>`
-            : "";
+            ? `<img src="${escapeHtml(p.image)}" alt="Pré-visualização"><span>Imagem atual</span>` : "";
     }
     openModal("productFormModal");
 }
@@ -1812,7 +1822,6 @@ function editProduct(id) {
 function deleteProduct(id) {
     const p = products.find(x => x.id === id);
     if (!p || !confirm(`Eliminar "${p.name}"?`)) return;
-
     products = products.filter(x => x.id !== id);
     saveData(STORAGE.products, products);
     renderProducts();
@@ -1820,16 +1829,14 @@ function deleteProduct(id) {
     showToast("Produto eliminado", `${p.name} foi removido.`);
 }
 
-/* ---- SERVIÇOS ---- */
+/* --------- Serviços admin --------- */
 function renderAdminServices() {
     const list = $("adminServiceList");
     if (!list) return;
-
     if (!services.length) {
         list.innerHTML = `<div class="admin-list-item"><div><h4>Nenhum serviço cadastrado.</h4></div></div>`;
         return;
     }
-
     list.innerHTML = services.map(s => `
         <div class="admin-list-item">
             <div class="admin-item-info">
@@ -1870,11 +1877,9 @@ function setupServiceAdmin() {
         const form = new FormData(e.target);
         const id = form.get("serviceId");
         const file = $("serviceImageFile")?.files?.[0];
-
         try {
             let image = form.get("newServiceImage") || "";
             if (file) image = await readImageFile(file);
-
             const service = {
                 id: id ? Number(id) : generateId(),
                 name: String(form.get("newServiceName") || "").trim(),
@@ -1883,7 +1888,6 @@ function setupServiceAdmin() {
                 icon: String(form.get("newServiceIcon") || "🛠️").trim(),
                 image
             };
-
             if (id) {
                 services = services.map(s => s.id === Number(id) ? service : s);
                 showToast("Serviço atualizado", `${service.name} foi atualizado.`);
@@ -1891,7 +1895,6 @@ function setupServiceAdmin() {
                 services.push(service);
                 showToast("Serviço adicionado", `${service.name} já está disponível.`);
             }
-
             saveData(STORAGE.services, services);
             renderServices();
             renderAdmin();
@@ -1907,18 +1910,15 @@ function setupServiceAdmin() {
 function editServiceForm(id) {
     const s = services.find(x => x.id === id);
     if (!s) return;
-
     setVal("serviceId", s.id);
     setVal("newServiceName", s.name);
     setVal("newServiceDescription", s.description);
     setVal("newServicePrice", s.price || 0);
     setVal("newServiceIcon", s.icon || "🛠️");
     setVal("newServiceImage", s.image?.startsWith("data:") ? "" : (s.image || ""));
-
     if ($("serviceImagePreview")) {
         $("serviceImagePreview").innerHTML = s.image
-            ? `<img src="${escapeHtml(s.image)}" alt="Pré-visualização"><span>Imagem atual</span>`
-            : "";
+            ? `<img src="${escapeHtml(s.image)}" alt="Pré-visualização"><span>Imagem atual</span>` : "";
     }
     openModal("serviceFormModal");
 }
@@ -1926,7 +1926,6 @@ function editServiceForm(id) {
 function deleteServiceById(id) {
     const s = services.find(x => x.id === id);
     if (!s || !confirm(`Eliminar o serviço "${s.name}"?`)) return;
-
     services = services.filter(x => x.id !== id);
     saveData(STORAGE.services, services);
     renderServices();
@@ -1934,16 +1933,14 @@ function deleteServiceById(id) {
     showToast("Serviço eliminado", `${s.name} foi removido.`);
 }
 
-/* ---- JOGOS ---- */
+/* --------- Jogos admin --------- */
 function renderAdminGames() {
     const list = $("adminGameList");
     if (!list) return;
-
     if (!games.length) {
         list.innerHTML = `<div class="admin-list-item"><div><h4>Nenhum jogo cadastrado.</h4></div></div>`;
         return;
     }
-
     list.innerHTML = games.map(g => `
         <div class="admin-list-item">
             <div class="admin-item-info">
@@ -1984,11 +1981,9 @@ function setupGameAdmin() {
         const form = new FormData(e.target);
         const id = form.get("gameId");
         const file = $("gameImageFile")?.files?.[0];
-
         try {
             let image = form.get("gameImage") || "";
             if (file) image = await readImageFile(file);
-
             const game = {
                 id: id ? Number(id) : generateId(),
                 name: String(form.get("gameName") || "").trim(),
@@ -1997,7 +1992,6 @@ function setupGameAdmin() {
                 icon: String(form.get("gameIcon") || "🎮").trim(),
                 image
             };
-
             if (id) {
                 games = games.map(g => g.id === Number(id) ? game : g);
                 showToast("Jogo atualizado", `${game.name} foi atualizado.`);
@@ -2005,7 +1999,6 @@ function setupGameAdmin() {
                 games.push(game);
                 showToast("Jogo adicionado", `${game.name} já está disponível.`);
             }
-
             saveData(STORAGE.games, games);
             renderGames();
             renderAdmin();
@@ -2021,18 +2014,15 @@ function setupGameAdmin() {
 function editGameForm(id) {
     const g = games.find(x => x.id === id);
     if (!g) return;
-
     setVal("gameId", g.id);
     setVal("gameName", g.name);
     setVal("gameDescription", g.description);
     setVal("gamePrice", g.price || 0);
     setVal("gameIcon", g.icon || "🎮");
     setVal("gameImage", g.image?.startsWith("data:") ? "" : (g.image || ""));
-
     if ($("gameImagePreview")) {
         $("gameImagePreview").innerHTML = g.image
-            ? `<img src="${escapeHtml(g.image)}" alt="Pré-visualização"><span>Imagem atual</span>`
-            : "";
+            ? `<img src="${escapeHtml(g.image)}" alt="Pré-visualização"><span>Imagem atual</span>` : "";
     }
     openModal("gameFormModal");
 }
@@ -2040,7 +2030,6 @@ function editGameForm(id) {
 function deleteGameById(id) {
     const g = games.find(x => x.id === id);
     if (!g || !confirm(`Eliminar o jogo "${g.name}"?`)) return;
-
     games = games.filter(x => x.id !== id);
     saveData(STORAGE.games, games);
     renderGames();
@@ -2048,16 +2037,14 @@ function deleteGameById(id) {
     showToast("Jogo eliminado", `${g.name} foi removido.`);
 }
 
-/* ---- PROGRAMAS ---- */
+/* --------- Programas admin --------- */
 function renderAdminSoftware() {
     const list = $("adminSoftwareList");
     if (!list) return;
-
     if (!software.length) {
         list.innerHTML = `<div class="admin-list-item"><div><h4>Nenhum programa cadastrado.</h4></div></div>`;
         return;
     }
-
     list.innerHTML = software.map(s => `
         <div class="admin-list-item">
             <div class="admin-item-info">
@@ -2098,11 +2085,9 @@ function setupSoftwareAdmin() {
         const form = new FormData(e.target);
         const id = form.get("softwareId");
         const file = $("softwareImageFile")?.files?.[0];
-
         try {
             let image = form.get("softwareImage") || "";
             if (file) image = await readImageFile(file);
-
             const sw = {
                 id: id ? Number(id) : generateId(),
                 name: String(form.get("softwareName") || "").trim(),
@@ -2111,7 +2096,6 @@ function setupSoftwareAdmin() {
                 icon: String(form.get("softwareIcon") || "📊").trim(),
                 image
             };
-
             if (id) {
                 software = software.map(s => s.id === Number(id) ? sw : s);
                 showToast("Programa atualizado", `${sw.name} foi atualizado.`);
@@ -2119,7 +2103,6 @@ function setupSoftwareAdmin() {
                 software.push(sw);
                 showToast("Programa adicionado", `${sw.name} já está disponível.`);
             }
-
             saveData(STORAGE.software, software);
             renderSoftware();
             renderAdmin();
@@ -2135,18 +2118,15 @@ function setupSoftwareAdmin() {
 function editSoftwareForm(id) {
     const s = software.find(x => x.id === id);
     if (!s) return;
-
     setVal("softwareId", s.id);
     setVal("softwareName", s.name);
     setVal("softwareDescription", s.description);
     setVal("softwarePrice", s.price || 0);
     setVal("softwareIcon", s.icon || "📊");
     setVal("softwareImage", s.image?.startsWith("data:") ? "" : (s.image || ""));
-
     if ($("softwareImagePreview")) {
         $("softwareImagePreview").innerHTML = s.image
-            ? `<img src="${escapeHtml(s.image)}" alt="Pré-visualização"><span>Imagem atual</span>`
-            : "";
+            ? `<img src="${escapeHtml(s.image)}" alt="Pré-visualização"><span>Imagem atual</span>` : "";
     }
     openModal("softwareFormModal");
 }
@@ -2154,7 +2134,6 @@ function editSoftwareForm(id) {
 function deleteSoftwareById(id) {
     const s = software.find(x => x.id === id);
     if (!s || !confirm(`Eliminar o programa "${s.name}"?`)) return;
-
     software = software.filter(x => x.id !== id);
     saveData(STORAGE.software, software);
     renderSoftware();
@@ -2162,329 +2141,14 @@ function deleteSoftwareById(id) {
     showToast("Programa eliminado", `${s.name} foi removido.`);
 }
 
-/* ---- PEDIDOS ---- */
-function renderAdminOrders() {
-    const list = $("adminOrderList");
-    if (!list) return;
-
-    if (!orders.length) {
-        list.innerHTML = `<div class="admin-list-item"><div><h4>Nenhum pedido ainda.</h4><p>Os pedidos dos clientes aparecerão aqui.</p></div></div>`;
-        return;
-    }
-
-    list.innerHTML = [...orders].reverse().map(o => `
-        <div class="admin-list-item">
-            <div class="admin-item-info">
-                <div class="admin-item-icon">🛒</div>
-                <div>
-                    <h4>${o.id}</h4>
-                    <p>${escapeHtml(o.customer.name)} • ${formatKz(o.total)} • ${escapeHtml(o.status)}</p>
-                </div>
-            </div>
-        </div>
-    `).join("");
-}
-
-/* ==========================================================
-   19 — CONTACTO
-========================================================== */
-function setupContact() {
-    $("contactForm")?.addEventListener("submit", e => {
-        e.preventDefault();
-        if ($("service")?.value === "Otimização ao domicílio") {
-            openModal("appointmentModal");
-        }
-        showToast("Mensagem enviada", "Obrigado por contactar a EdZZ-Spot AO.");
-        e.target.reset();
-    });
-}
-
-/* ==========================================================
-   20 — TOAST
-========================================================== */
-let toastTimer;
-
-function showToast(title, message) {
-    const toast = $("toast");
-    if (!toast) return;
-
-    setText("toastTitle", title);
-    setText("toastMessage", message);
-
-    toast.classList.add("active");
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove("active"), 3500);
-}
-
-function setupToastClose() {
-    $("toastClose")?.addEventListener("click", () => {
-        $("toast")?.classList.remove("active");
-    });
-}
-
-/* ==========================================================
-   21 — JOGOS & PROGRAMAS (RENDER)
-========================================================== */
-function renderGames() {
-    const grid = $("gamesGrid");
-    if (!grid) return;
-
-    grid.innerHTML = games.map(g => `
-        <article class="game-card reveal">
-            ${g.image
-                ? `<div class="game-card-image"><img src="${escapeHtml(g.image)}" alt="${escapeHtml(g.name)}"></div>`
-                : `<div class="game-card-icon">${escapeHtml(g.icon || "🎮")}</div>`}
-            <h3>${escapeHtml(g.name)}</h3>
-            <p>${escapeHtml(g.description)}</p>
-            <div class="card-bottom">
-                <strong class="card-price">${formatKz(g.price)}</strong>
-                <button class="card-add-btn" data-add-game="${g.id}">+ Carrinho</button>
-            </div>
-        </article>
-    `).join("");
-
-    grid.querySelectorAll("[data-add-game]").forEach(btn => {
-        btn.addEventListener("click", () =>
-            addToCart(Number(btn.dataset.addGame), "game")
-        );
-    });
-}
-
-function renderSoftware() {
-    const grid = $("softwareGrid");
-    if (!grid) return;
-
-    grid.innerHTML = software.map(s => `
-        <article class="software-card reveal">
-            ${s.image
-                ? `<div class="software-card-image"><img src="${escapeHtml(s.image)}" alt="${escapeHtml(s.name)}"></div>`
-                : `<div class="software-icon">${escapeHtml(s.icon || "📊")}</div>`}
-            <h3>${escapeHtml(s.name)}</h3>
-            <p>${escapeHtml(s.description)}</p>
-            <div class="card-bottom">
-                <strong class="card-price">${formatKz(s.price)}</strong>
-                <button class="card-add-btn" data-add-software="${s.id}">+ Carrinho</button>
-            </div>
-        </article>
-    `).join("");
-
-    grid.querySelectorAll("[data-add-software]").forEach(btn => {
-        btn.addEventListener("click", () =>
-            addToCart(Number(btn.dataset.addSoftware), "software")
-        );
-    });
-}
-
-/* ==========================================================
-   22 — FAVORITOS
-========================================================== */
-function updateFavoritesCount() {
-    setText("favoritesCount", favorites.length);
-}
-
-function toggleFavorite(id) {
-    if (!currentUser) {
-        showToast("Atenção", "Faz login para guardar favoritos.");
-        return;
-    }
-
-    if (favorites.includes(id)) {
-        favorites = favorites.filter(f => f !== id);
-        showToast("Favoritos", "Produto removido dos favoritos.");
-    } else {
-        favorites.push(id);
-        showToast("Favoritos", "Produto guardado nos favoritos.");
-    }
-
-    saveFavorites();
-    updateFavoritesCount();
-    renderProducts();
-
-    if ($("favoritesModal")?.classList.contains("active")) {
-        renderFavorites();
-    }
-}
-
-function renderFavorites() {
-    const container = $("favoritesContent");
-    if (!container) return;
-
-    if (!currentUser) {
-        container.innerHTML = `
-            <div class="favorites-empty">
-                <div class="favorites-empty-icon">🔒</div>
-                <h3>Faz login para veres os teus favoritos</h3>
-                <p>Os favoritos são guardados na tua conta.</p>
-                <button id="loginForFavorites" class="btn btn-primary" style="margin-top:14px;">
-                    Entrar ou criar conta
-                </button>
-            </div>
-        `;
-        $("loginForFavorites")?.addEventListener("click", () => {
-            closeModal("favoritesModal");
-            switchAuthTab("login");
-            openModal("loginModal");
-        });
-        return;
-    }
-
-    const favItems = products.filter(p => favorites.includes(p.id));
-
-    if (!favItems.length) {
-        container.innerHTML = `
-            <div class="favorites-empty">
-                <div class="favorites-empty-icon">♡</div>
-                <h3>Ainda não tens favoritos</h3>
-                <p>Clica no ♥ dos produtos para os guardares aqui.</p>
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = favItems.map(p => `
-        <div class="favorite-item">
-            <div class="favorite-item-image">
-                ${p.image
-                    ? `<img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}">`
-                    : `<span>💻</span>`}
-            </div>
-            <div class="favorite-item-info">
-                <h4>${escapeHtml(p.name)}</h4>
-                <span>${formatKz(p.price)}</span>
-                <small>${getCategoryName(p.category)}</small>
-            </div>
-            <div class="favorite-item-actions">
-                <button class="fav-add" data-fav-add="${p.id}">+ Carrinho</button>
-                <button class="fav-remove" data-fav-remove="${p.id}">♡ Remover</button>
-            </div>
-        </div>
-    `).join("");
-
-    container.querySelectorAll("[data-fav-add]").forEach(btn => {
-        btn.addEventListener("click", () => {
-            addToCart(Number(btn.dataset.favAdd), "product");
-        });
-    });
-
-    container.querySelectorAll("[data-fav-remove]").forEach(btn => {
-        btn.addEventListener("click", () => {
-            toggleFavorite(Number(btn.dataset.favRemove));
-        });
-    });
-}
-
-function setupFavorites() {
-    $("openFavorites")?.addEventListener("click", () => {
-        renderFavorites();
-        openModal("favoritesModal");
-    });
-
-    updateFavoritesCount();
-}
-
-/* ==========================================================
-   22.5 — CARROSSEL DE DESTAQUES (editável)
-========================================================== */
-function renderCarousel() {
-    const track = $("carouselTrack");
-    const dotsEl = $("carouselDots");
-    if (!track || !dotsEl) return;
-
-    if (!carouselSlides.length) {
-        track.innerHTML = `<div class="carousel-slide"><div class="carousel-slide-text"><p>Sem slides configurados.</p></div></div>`;
-        dotsEl.innerHTML = "";
-        return;
-    }
-
-    track.innerHTML = carouselSlides.map((slide, i) => `
-        <div class="carousel-slide" data-slide-index="${i}">
-            <div class="carousel-slide-text">
-                <span class="carousel-slide-tag">${escapeHtml(slide.tag)}</span>
-                <h2>${slide.title}</h2>
-                <p>${escapeHtml(slide.description)}</p>
-                <span class="carousel-slide-price">${formatKz(slide.price)}</span>
-                <button class="btn btn-primary" data-carousel-cta="${i}">Ver mais →</button>
-            </div>
-            <div class="carousel-slide-image">
-                ${slide.image ? `<img src="${escapeHtml(slide.image)}" alt="">` : `💻`}
-            </div>
-        </div>
-    `).join("");
-
-    dotsEl.innerHTML = carouselSlides.map((_, i) =>
-        `<button class="carousel-dot ${i === 0 ? "active" : ""}"
-                 data-carousel-dot="${i}"
-                 aria-label="Slide ${i + 1}"></button>`
-    ).join("");
-
-    $("carouselPrev")?.addEventListener("click", () => moveCarousel(-1));
-    $("carouselNext")?.addEventListener("click", () => moveCarousel(1));
-
-    dotsEl.querySelectorAll("[data-carousel-dot]").forEach(dot => {
-        dot.addEventListener("click", () => goToSlide(Number(dot.dataset.carouselDot)));
-    });
-
-    track.querySelectorAll("[data-carousel-cta]").forEach(btn => {
-        btn.addEventListener("click", () => {
-            const slide = carouselSlides[Number(btn.dataset.carouselCta)];
-            const firstWord = slide.title.replace(/<[^>]*>/g, "").trim().split(" ")[0].toLowerCase();
-            const product = products.find(p => p.name.toLowerCase().includes(firstWord));
-
-            if (product) openProduct(product.id);
-            else document.querySelector("#computadores")?.scrollIntoView({ behavior: "smooth" });
-        });
-    });
-
-    const container = track.closest(".carousel-container");
-    container?.addEventListener("mouseenter", stopCarousel);
-    container?.addEventListener("mouseleave", startCarousel);
-
-    let touchStartX = 0;
-    track.addEventListener("touchstart", e => { touchStartX = e.touches[0].clientX; }, { passive: true });
-    track.addEventListener("touchend", e => {
-        const diff = e.changedTouches[0].clientX - touchStartX;
-        if (Math.abs(diff) > 50) moveCarousel(diff < 0 ? 1 : -1);
-    });
-
-    goToSlide(0);
-    startCarousel();
-}
-
-function goToSlide(index) {
-    if (!carouselSlides.length) return;
-    carouselIndex = (index + carouselSlides.length) % carouselSlides.length;
-
-    const track = $("carouselTrack");
-    if (track) track.style.transform = `translateX(-${carouselIndex * 100}%)`;
-
-    document.querySelectorAll(".carousel-dot").forEach((dot, i) => {
-        dot.classList.toggle("active", i === carouselIndex);
-    });
-}
-
-function moveCarousel(direction) { goToSlide(carouselIndex + direction); }
-
-function startCarousel() {
-    stopCarousel();
-    if (carouselSlides.length > 1) {
-        carouselInterval = setInterval(() => moveCarousel(1), 5000);
-    }
-}
-
-function stopCarousel() {
-    if (carouselInterval) { clearInterval(carouselInterval); carouselInterval = null; }
-}
-
-/* ---------- Admin — CRUD dos slides ---------- */
+/* --------- Carrossel admin --------- */
 function renderAdminCarousel() {
     const list = $("adminCarouselList");
     if (!list) return;
-
     if (!carouselSlides.length) {
         list.innerHTML = `<div class="admin-list-item"><div><h4>Nenhum slide.</h4></div></div>`;
         return;
     }
-
     list.innerHTML = carouselSlides.map(s => `
         <div class="admin-list-item">
             <div class="admin-item-info">
@@ -2506,7 +2170,6 @@ function renderAdminCarousel() {
 
 function setupCarouselAdmin() {
     previewImage("carouselImageFile", "carouselImagePreview");
-
     $("openCarouselForm")?.addEventListener("click", () => {
         $("carouselForm")?.reset();
         setVal("carouselId", "");
@@ -2527,11 +2190,9 @@ function setupCarouselAdmin() {
         const form = new FormData(e.target);
         const id = form.get("carouselId");
         const file = $("carouselImageFile")?.files?.[0];
-
         try {
             let image = form.get("carouselImage") || "";
             if (file) image = await readImageFile(file);
-
             const slide = {
                 id: id ? Number(id) : generateId(),
                 tag: String(form.get("carouselTag") || "").trim(),
@@ -2540,7 +2201,6 @@ function setupCarouselAdmin() {
                 price: Number(form.get("carouselPrice")) || 0,
                 image
             };
-
             if (id) {
                 carouselSlides = carouselSlides.map(s => s.id === Number(id) ? slide : s);
                 showToast("Slide atualizado", "Alterações guardadas.");
@@ -2548,7 +2208,6 @@ function setupCarouselAdmin() {
                 carouselSlides.push(slide);
                 showToast("Slide adicionado", "Já aparece no carrossel.");
             }
-
             saveData(STORAGE.carousel, carouselSlides);
             renderCarousel();
             renderAdminCarousel();
@@ -2564,7 +2223,6 @@ function setupCarouselAdmin() {
 function editCarouselForm(id) {
     const s = carouselSlides.find(x => x.id === id);
     if (!s) return;
-
     setVal("carouselId", s.id);
     setVal("carouselTag", s.tag);
     setVal("carouselTitle", s.title);
@@ -2572,11 +2230,9 @@ function editCarouselForm(id) {
     setVal("carouselDescription", s.description);
     setVal("carouselImage", s.image?.startsWith("data:") ? "" : (s.image || ""));
     setVal("carouselImageFile", "");
-
     if ($("carouselImagePreview")) {
         $("carouselImagePreview").innerHTML = s.image
-            ? `<img src="${escapeHtml(s.image)}" alt=""><span>Imagem atual</span>`
-            : "";
+            ? `<img src="${escapeHtml(s.image)}" alt=""><span>Imagem atual</span>` : "";
     }
     openModal("carouselFormModal");
 }
@@ -2584,7 +2240,6 @@ function editCarouselForm(id) {
 function deleteCarousel(id) {
     const s = carouselSlides.find(x => x.id === id);
     if (!s || !confirm(`Eliminar o slide "${s.title.replace(/<[^>]*>/g, "")}"?`)) return;
-
     carouselSlides = carouselSlides.filter(x => x.id !== id);
     saveData(STORAGE.carousel, carouselSlides);
     renderCarousel();
@@ -2593,152 +2248,7 @@ function deleteCarousel(id) {
 }
 
 /* ==========================================================
-   22.6 — COMENTÁRIOS / AVALIAÇÕES (servidor)
-========================================================== */
-async function loadCommentsFromServer() {
-    try {
-        const res = await fetch("/api/comments");
-        if (!res.ok) throw new Error("Erro");
-        comments = await res.json();
-        return true;
-    } catch {
-        comments = loadData(STORAGE.comments, []);
-        return false;
-    }
-}
-
-async function renderComments() {
-    const formWrapper = $("commentForm-wrapper");
-    const list = $("commentsList");
-    if (!formWrapper || !list) return;
-
-    // Carrega do servidor
-    await loadCommentsFromServer();
-
-    if (currentUser) {
-        formWrapper.innerHTML = `
-            <form id="commentForm">
-                <h3 style="margin-bottom:14px;font-family:Orbitron,sans-serif;font-size:1rem;">
-                    Deixa a tua avaliação
-                </h3>
-
-                <div class="star-rating" id="starRating">
-                    <span data-star="1">★</span>
-                    <span data-star="2">★</span>
-                    <span data-star="3">★</span>
-                    <span data-star="4">★</span>
-                    <span data-star="5">★</span>
-                </div>
-                <input type="hidden" id="commentRating" value="5">
-
-                <div class="form-group">
-                    <textarea id="commentText" rows="4" placeholder="Conta-nos a tua experiência..."
-                              maxlength="500" required></textarea>
-                    <small>A comentar como <strong>${escapeHtml(currentUser.name)}</strong></small>
-                </div>
-
-                <button class="btn btn-primary" type="submit">Publicar comentário →</button>
-            </form>
-        `;
-
-        document.querySelectorAll("#starRating span").forEach(star => {
-            star.addEventListener("click", () => {
-                const value = Number(star.dataset.star);
-                $("commentRating").value = value;
-                document.querySelectorAll("#starRating span").forEach(s => {
-                    s.classList.toggle("active", Number(s.dataset.star) <= value);
-                });
-            });
-        });
-        document.querySelectorAll("#starRating span").forEach(s => s.classList.add("active"));
-
-        $("commentForm").addEventListener("submit", async e => {
-            e.preventDefault();
-            const text = $("commentText").value.trim();
-            const rating = Number($("commentRating").value) || 5;
-            if (!text) return;
-
-            try {
-                await fetch("/api/comments", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        userId: currentUser.id,
-                        name: currentUser.name,
-                        rating,
-                        text
-                    })
-                });
-                showToast("Comentário publicado", "Obrigado pela tua avaliação!");
-                renderComments();
-            } catch {
-                showToast("Erro", "Não foi possível publicar.");
-            }
-        });
-    } else {
-        formWrapper.innerHTML = `
-            <div class="comment-login-notice">
-                <p><strong>Faz login</strong> para deixar a tua avaliação.</p>
-                <button id="loginToComment" class="btn btn-primary">Entrar ou criar conta</button>
-            </div>
-        `;
-        $("loginToComment")?.addEventListener("click", () => {
-            switchAuthTab("login");
-            openModal("loginModal");
-        });
-    }
-
-    if (!comments.length) {
-        list.innerHTML = `<div class="comments-empty">Ainda não há avaliações. Sê o primeiro a comentar!</div>`;
-        return;
-    }
-
-    list.innerHTML = [...comments].reverse().map(c => {
-        const initial = c.name.trim().charAt(0).toUpperCase();
-        const stars = "★".repeat(c.rating) + "☆".repeat(5 - c.rating);
-        const canDelete = currentUser && (currentUser.id === c.userId || currentUser.role === "admin");
-
-        return `
-            <div class="comment-card">
-                <div class="comment-header">
-                    <div class="comment-author">
-                        <div class="comment-avatar">${escapeHtml(initial)}</div>
-                        <div>
-                            <strong>${escapeHtml(c.name)}</strong>
-                            <small>${new Date(c.date).toLocaleDateString("pt-AO")}</small>
-                        </div>
-                    </div>
-                    <div>
-                        <span class="comment-rating">${stars}</span>
-                        ${canDelete ? `<button class="comment-delete" data-delete-comment="${c.id}">Remover</button>` : ""}
-                    </div>
-                </div>
-                <p class="comment-text">${escapeHtml(c.text)}</p>
-            </div>
-        `;
-    }).join("");
-
-    list.querySelectorAll("[data-delete-comment]").forEach(btn => {
-        btn.addEventListener("click", () => deleteComment(Number(btn.dataset.deleteComment)));
-    });
-}
-
-async function deleteComment(id) {
-    const c = comments.find(x => x.id === id);
-    if (!c) return;
-    if (!confirm("Remover este comentário?")) return;
-
-    try {
-        await fetch(`/api/comments/${id}`, { method: "DELETE" });
-        showToast("Removido", "Comentário eliminado.");
-        renderComments();
-    } catch {
-        showToast("Erro", "Não foi possível remover.");
-    }
-}
-
-/* ==========================================================
-   22.7 — NOTIFICAÇÕES DE PEDIDOS
+   24 — PEDIDOS / NOTIFICAÇÕES
 ========================================================== */
 async function fetchOrders() {
     try {
@@ -2753,17 +2263,13 @@ function beep() {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-
         osc.connect(gain);
         gain.connect(ctx.destination);
-
         osc.type = "sine";
         osc.frequency.setValueAtTime(880, ctx.currentTime);
         osc.frequency.setValueAtTime(1200, ctx.currentTime + 0.1);
-
         gain.gain.setValueAtTime(0.15, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-
         osc.start(ctx.currentTime);
         osc.stop(ctx.currentTime + 0.3);
     } catch { /* silencioso */ }
@@ -2773,7 +2279,6 @@ async function requestSystemNotificationPermission() {
     if (!("Notification" in window)) return false;
     if (Notification.permission === "granted") return true;
     if (Notification.permission === "denied") return false;
-
     const permission = await Notification.requestPermission();
     return permission === "granted";
 }
@@ -2782,12 +2287,10 @@ function showSystemNotification(order) {
     if (!systemNotifications) return;
     if (!("Notification" in window)) return;
     if (Notification.permission !== "granted") return;
-
     try {
         const notif = new Notification("🛒 Novo pedido EdZZ-Spot", {
             body: `${order.customer?.name || "Cliente"}\n${order.total} Kz\n${order.id}`
         });
-
         notif.onclick = () => {
             window.focus();
             openAdmin();
@@ -2811,10 +2314,8 @@ function updateAdminOrderBadge(ordersList) {
         if (badge) badge.hidden = true;
         return;
     }
-
     const unseen = ordersList.filter(o => !o.seen).length;
     const badge = $("adminOrderBadge");
-
     if (badge) {
         if (unseen > 0) {
             badge.textContent = unseen > 99 ? "99+" : unseen;
@@ -2827,28 +2328,20 @@ function updateAdminOrderBadge(ordersList) {
 
 async function checkForNewOrders(firstRun = false) {
     if (!currentUser || currentUser.role !== "admin") return;
-
     const ordersFromServer = await fetchOrders();
     if (!ordersFromServer) return;
 
     const currentIds = new Set(ordersFromServer.map(o => o.id));
-
     if (!firstRun) {
         const newOnes = ordersFromServer.filter(o => !knownOrderIds.has(o.id));
-
         if (newOnes.length > 0) {
             newOnes.forEach(order => {
-                showToast(
-                    "🛒 Novo pedido recebido!",
-                    `${order.customer?.name || "Cliente"} — ${formatKz(order.total)}`
-                );
+                showToast("🛒 Novo pedido recebido!", `${order.customer?.name || "Cliente"} — ${formatKz(order.total)}`);
                 showSystemNotification(order);
             });
-
             if (notificationSound) beep();
         }
     }
-
     knownOrderIds = currentIds;
     updateAdminOrderBadge(ordersFromServer);
     renderAdminOrdersFromServer(ordersFromServer);
@@ -2857,19 +2350,15 @@ async function checkForNewOrders(firstRun = false) {
 function renderAdminOrdersFromServer(ordersFromServer) {
     const list = $("adminOrderList");
     if (!list) return;
-
     if (!ordersFromServer.length) {
         list.innerHTML = `<div class="admin-list-item"><div><h4>Nenhum pedido ainda.</h4><p>Os pedidos dos clientes aparecerão aqui.</p></div></div>`;
         return;
     }
-
     const sorted = [...ordersFromServer].reverse();
-
     list.innerHTML = sorted.map(o => {
         const isSeen = o.seen === true;
         const status = o.status || "Pendente";
         const statusClass = getStatusClass(status);
-
         return `
         <div class="admin-list-item ${isSeen ? "" : "is-new"}">
             <div class="admin-item-info">
@@ -2902,10 +2391,9 @@ function renderAdminOrdersFromServer(ordersFromServer) {
                 </select>
             </div>
         </div>
-    `;
+        `;
     }).join("");
 
-    // Botão "Marcar como lido"
     list.querySelectorAll("[data-mark-seen]").forEach(btn => {
         btn.addEventListener("click", async () => {
             const id = btn.dataset.markSeen;
@@ -2914,9 +2402,7 @@ function renderAdminOrdersFromServer(ordersFromServer) {
             try {
                 const res = await fetch(`/api/orders/${encodeURIComponent(id)}/seen`, {
                     method: "PATCH",
-                    headers: {
-                        "Authorization": authToken ? `Bearer ${authToken}` : ""
-                    }
+                    headers: { "Authorization": authToken ? `Bearer ${authToken}` : "" }
                 });
                 if (!res.ok) throw new Error("Falha ao marcar.");
                 showToast("✅", "Pedido marcado como lido.");
@@ -2929,14 +2415,11 @@ function renderAdminOrdersFromServer(ordersFromServer) {
         });
     });
 
-    // Dropdown de estado
     list.querySelectorAll("[data-order-status]").forEach(select => {
         select.addEventListener("change", async e => {
             const id = select.dataset.orderStatus;
             const newStatus = e.target.value;
-
             select.disabled = true;
-
             try {
                 const res = await fetch(`/api/orders/${encodeURIComponent(id)}/status`, {
                     method: "PATCH",
@@ -2957,7 +2440,6 @@ function renderAdminOrdersFromServer(ordersFromServer) {
     });
 }
 
-/* ---------- Helper: classe CSS do estado ---------- */
 function getStatusClass(status) {
     const map = {
         "Pendente":   "status-pending",
@@ -2972,7 +2454,6 @@ function getStatusClass(status) {
 function startOrdersPolling() {
     if (ordersPollTimer) clearInterval(ordersPollTimer);
     if (!currentUser || currentUser.role !== "admin") return;
-
     checkForNewOrders(true);
     ordersPollTimer = setInterval(() => checkForNewOrders(), 15000);
 }
@@ -3029,9 +2510,523 @@ function setupNotificationsControls() {
 }
 
 /* ==========================================================
-   23 — INICIALIZAÇÃO
+   25 — CONTACTO
+========================================================== */
+function setupContact() {
+    $("contactForm")?.addEventListener("submit", e => {
+        e.preventDefault();
+        if ($("service")?.value === "Otimização ao domicílio") {
+            openModal("appointmentModal");
+        }
+        showToast("Mensagem enviada", "Obrigado por contactar a EdZZ-Spot AO.");
+        e.target.reset();
+    });
+}
+
+/* ==========================================================
+   26 — TOAST
+========================================================== */
+let toastTimer;
+
+function showToast(title, message) {
+    const toast = $("toast");
+    if (!toast) return;
+    setText("toastTitle", title);
+    setText("toastMessage", message);
+    toast.classList.add("active");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("active"), 3500);
+}
+
+function setupToastClose() {
+    $("toastClose")?.addEventListener("click", () => {
+        $("toast")?.classList.remove("active");
+    });
+}
+
+/* ==========================================================
+   27 — JOGOS E PROGRAMAS
+========================================================== */
+function renderGames() {
+    const grid = $("gamesGrid");
+    if (!grid) return;
+    if (!Array.isArray(games)) games = [...DEFAULT_GAMES];
+
+    grid.innerHTML = games.map(g => {
+        const favorite = favorites.includes(g.id);
+        return `
+        <article class="game-card reveal">
+            ${g.image
+                ? `<div class="game-card-image">
+                       <img src="${escapeHtml(g.image)}" alt="${escapeHtml(g.name)}">
+                       <button class="favorite-button ${favorite ? "active" : ""}"
+                               data-favorite="${g.id}" type="button"
+                               aria-label="Favorito">${favorite ? "♥" : "♡"}</button>
+                   </div>`
+                : `<div class="game-card-icon">
+                       ${escapeHtml(g.icon || "🎮")}
+                       <button class="favorite-button ${favorite ? "active" : ""}"
+                               data-favorite="${g.id}" type="button"
+                               aria-label="Favorito">${favorite ? "♥" : "♡"}</button>
+                   </div>`}
+            <h3>${escapeHtml(g.name)}</h3>
+            <p>${escapeHtml(g.description)}</p>
+            <div class="card-bottom">
+                <strong class="card-price">${formatKz(g.price)}</strong>
+                <button class="card-add-btn" data-add-game="${g.id}">+ Carrinho</button>
+            </div>
+        </article>
+        `;
+    }).join("");
+
+    grid.querySelectorAll("[data-add-game]").forEach(btn => {
+        btn.addEventListener("click", () => addToCart(Number(btn.dataset.addGame), "game"));
+    });
+    observeReveals();
+}
+
+function renderSoftware() {
+    const grid = $("softwareGrid");
+    if (!grid) return;
+    if (!Array.isArray(software)) software = [...DEFAULT_SOFTWARE];
+
+    grid.innerHTML = software.map(s => {
+        const favorite = favorites.includes(s.id);
+        return `
+        <article class="software-card reveal">
+            ${s.image
+                ? `<div class="software-card-image">
+                       <img src="${escapeHtml(s.image)}" alt="${escapeHtml(s.name)}">
+                       <button class="favorite-button ${favorite ? "active" : ""}"
+                               data-favorite="${s.id}" type="button"
+                               aria-label="Favorito">${favorite ? "♥" : "♡"}</button>
+                   </div>`
+                : `<div class="software-icon">
+                       ${escapeHtml(s.icon || "📊")}
+                       <button class="favorite-button ${favorite ? "active" : ""}"
+                               data-favorite="${s.id}" type="button"
+                               aria-label="Favorito">${favorite ? "♥" : "♡"}</button>
+                   </div>`}
+            <h3>${escapeHtml(s.name)}</h3>
+            <p>${escapeHtml(s.description)}</p>
+            <div class="card-bottom">
+                <strong class="card-price">${formatKz(s.price)}</strong>
+                <button class="card-add-btn" data-add-software="${s.id}">+ Carrinho</button>
+            </div>
+        </article>
+        `;
+    }).join("");
+
+    grid.querySelectorAll("[data-add-software]").forEach(btn => {
+        btn.addEventListener("click", () => addToCart(Number(btn.dataset.addSoftware), "software"));
+    });
+    observeReveals();
+}
+
+/* ==========================================================
+   28 — FAVORITOS
+========================================================== */
+function toggleFavorite(id) {
+    if (!currentUser) {
+        showToast("Atenção", "Faz login para guardar favoritos.");
+        return;
+    }
+    if (favorites.includes(id)) {
+        favorites = favorites.filter(f => f !== id);
+        showToast("Favoritos", "Removido dos favoritos.");
+    } else {
+        favorites.push(id);
+        showToast("Favoritos", "Guardado nos favoritos.");
+    }
+    saveFavorites();
+    updateFavoritesCount();
+    renderProducts();
+    renderGames();
+    renderSoftware();
+    if ($("favoritesModal")?.classList.contains("active")) {
+        renderFavorites();
+    }
+}
+
+function renderFavorites() {
+    const container = $("favoritesContent");
+    if (!container) return;
+
+    if (!currentUser) {
+        container.innerHTML = `
+            <div class="favorites-empty">
+                <div class="favorites-empty-icon">🔒</div>
+                <h3>Faz login para veres os teus favoritos</h3>
+                <p>Os favoritos são guardados na tua conta.</p>
+                <button id="loginForFavorites" class="btn btn-primary" style="margin-top:14px;">
+                    Entrar ou criar conta
+                </button>
+            </div>
+        `;
+        $("loginForFavorites")?.addEventListener("click", () => {
+            closeModal("favoritesModal");
+            switchAuthTab("login");
+            openModal("loginModal");
+        });
+        return;
+    }
+
+    const allItems = [
+        ...products.map(p => ({ ...p, _type: "product", _label: "Computador" })),
+        ...games.map(g => ({ ...g, _type: "game", _label: "Jogo" })),
+        ...software.map(s => ({ ...s, _type: "software", _label: "Programa" }))
+    ];
+
+    const favItems = allItems.filter(item => favorites.includes(item.id));
+
+    if (!favItems.length) {
+        container.innerHTML = `
+            <div class="favorites-empty">
+                <div class="favorites-empty-icon">♡</div>
+                <h3>Ainda não tens favoritos</h3>
+                <p>Clica no ♥ dos computadores, jogos ou programas para os guardares aqui.</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = favItems.map(item => `
+        <div class="favorite-item">
+            <div class="favorite-item-image">
+                ${item.image
+                    ? `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}">`
+                    : `<span>${item.icon || "💻"}</span>`}
+            </div>
+            <div class="favorite-item-info">
+                <h4>${escapeHtml(item.name)}</h4>
+                <span>${formatKz(item.price)}</span>
+                <small class="favorite-item-type">${item._label}</small>
+            </div>
+            <div class="favorite-item-actions">
+                <button class="fav-add" data-fav-add="${item.id}" data-fav-type="${item._type}">+ Carrinho</button>
+                <button class="fav-remove" data-fav-remove="${item.id}">♡ Remover</button>
+            </div>
+        </div>
+    `).join("");
+
+    container.querySelectorAll("[data-fav-add]").forEach(btn => {
+        btn.addEventListener("click", () => {
+            addToCart(Number(btn.dataset.favAdd), btn.dataset.favType || "product");
+        });
+    });
+    container.querySelectorAll("[data-fav-remove]").forEach(btn => {
+        btn.addEventListener("click", () => toggleFavorite(Number(btn.dataset.favRemove)));
+    });
+}
+
+function setupFavorites() {
+    $("openFavorites")?.addEventListener("click", () => {
+        renderFavorites();
+        openModal("favoritesModal");
+    });
+    updateFavoritesCount();
+}
+
+/* ==========================================================
+   29 — CARROSSEL
+========================================================== */
+function renderCarousel() {
+    const track = $("carouselTrack");
+    const dotsEl = $("carouselDots");
+    if (!track || !dotsEl) return;
+    if (!Array.isArray(carouselSlides)) carouselSlides = [...DEFAULT_CAROUSEL];
+
+    if (!carouselSlides.length) {
+        track.innerHTML = `<div class="carousel-slide"><div class="carousel-slide-text"><p>Sem slides configurados.</p></div></div>`;
+        dotsEl.innerHTML = "";
+        return;
+    }
+
+    track.innerHTML = carouselSlides.map((slide, i) => `
+        <div class="carousel-slide" data-slide-index="${i}">
+            <div class="carousel-slide-text">
+                <span class="carousel-slide-tag">${escapeHtml(slide.tag)}</span>
+                <h2>${slide.title}</h2>
+                <p>${escapeHtml(slide.description)}</p>
+                <span class="carousel-slide-price">${formatKz(slide.price)}</span>
+                <button class="btn btn-primary" data-carousel-cta="${i}">Ver mais →</button>
+            </div>
+            <div class="carousel-slide-image">
+                ${slide.image ? `<img src="${escapeHtml(slide.image)}" alt="">` : `💻`}
+            </div>
+        </div>
+    `).join("");
+
+    dotsEl.innerHTML = carouselSlides.map((_, i) =>
+        `<button class="carousel-dot ${i === 0 ? "active" : ""}"
+                 data-carousel-dot="${i}"
+                 aria-label="Slide ${i + 1}"></button>`
+    ).join("");
+
+    $("carouselPrev")?.addEventListener("click", () => moveCarousel(-1));
+    $("carouselNext")?.addEventListener("click", () => moveCarousel(1));
+
+    dotsEl.querySelectorAll("[data-carousel-dot]").forEach(dot => {
+        dot.addEventListener("click", () => goToSlide(Number(dot.dataset.carouselDot)));
+    });
+
+    track.querySelectorAll("[data-carousel-cta]").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const slide = carouselSlides[Number(btn.dataset.carouselCta)];
+            const firstWord = slide.title.replace(/<[^>]*>/g, "").trim().split(" ")[0].toLowerCase();
+            const product = products.find(p => p.name.toLowerCase().includes(firstWord));
+            if (product) openProduct(product.id);
+            else document.querySelector("#computadores")?.scrollIntoView({ behavior: "smooth" });
+        });
+    });
+
+    const container = track.closest(".carousel-container");
+    container?.addEventListener("mouseenter", stopCarousel);
+    container?.addEventListener("mouseleave", startCarousel);
+
+    let touchStartX = 0;
+    track.addEventListener("touchstart", e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+    track.addEventListener("touchend", e => {
+        const diff = e.changedTouches[0].clientX - touchStartX;
+        if (Math.abs(diff) > 50) moveCarousel(diff < 0 ? 1 : -1);
+    });
+
+    goToSlide(0);
+    startCarousel();
+}
+
+function goToSlide(index) {
+    if (!carouselSlides.length) return;
+    carouselIndex = (index + carouselSlides.length) % carouselSlides.length;
+    const track = $("carouselTrack");
+    if (track) track.style.transform = `translateX(-${carouselIndex * 100}%)`;
+    document.querySelectorAll(".carousel-dot").forEach((dot, i) => {
+        dot.classList.toggle("active", i === carouselIndex);
+    });
+}
+
+function moveCarousel(direction) { goToSlide(carouselIndex + direction); }
+
+function startCarousel() {
+    stopCarousel();
+    if (carouselSlides.length > 1) {
+        carouselInterval = setInterval(() => moveCarousel(1), 5000);
+    }
+}
+
+function stopCarousel() {
+    if (carouselInterval) { clearInterval(carouselInterval); carouselInterval = null; }
+}
+
+/* ==========================================================
+   30 — COMENTÁRIOS
+========================================================== */
+async function loadCommentsFromServer() {
+    try {
+        const res = await fetch("/api/comments");
+        if (!res.ok) throw new Error("Erro");
+        comments = await res.json();
+        return true;
+    } catch {
+        comments = loadData(STORAGE.comments, []);
+        return false;
+    }
+}
+
+async function renderComments() {
+    const formWrapper = $("commentForm-wrapper");
+    const list = $("commentsList");
+    if (!formWrapper || !list) return;
+
+    await loadCommentsFromServer();
+
+    if (currentUser) {
+        formWrapper.innerHTML = `
+            <form id="commentForm">
+                <h3 style="margin-bottom:14px;font-family:Orbitron,sans-serif;font-size:1rem;">
+                    Deixa a tua avaliação
+                </h3>
+                <div class="star-rating" id="starRating">
+                    <span data-star="1">★</span>
+                    <span data-star="2">★</span>
+                    <span data-star="3">★</span>
+                    <span data-star="4">★</span>
+                    <span data-star="5">★</span>
+                </div>
+                <input type="hidden" id="commentRating" value="5">
+                <div class="form-group">
+                    <textarea id="commentText" rows="4" placeholder="Conta-nos a tua experiência..."
+                              maxlength="500" required></textarea>
+                    <small>A comentar como <strong>${escapeHtml(currentUser.name)}</strong></small>
+                </div>
+                <button class="btn btn-primary" type="submit">Publicar comentário →</button>
+            </form>
+        `;
+
+        document.querySelectorAll("#starRating span").forEach(star => {
+            star.addEventListener("click", () => {
+                const value = Number(star.dataset.star);
+                $("commentRating").value = value;
+                document.querySelectorAll("#starRating span").forEach(s => {
+                    s.classList.toggle("active", Number(s.dataset.star) <= value);
+                });
+            });
+        });
+        document.querySelectorAll("#starRating span").forEach(s => s.classList.add("active"));
+
+        $("commentForm").addEventListener("submit", async e => {
+            e.preventDefault();
+            const text = $("commentText").value.trim();
+            const rating = Number($("commentRating").value) || 5;
+            if (!text) return;
+            try {
+                await fetch("/api/comments", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ userId: currentUser.id, name: currentUser.name, rating, text })
+                });
+                showToast("Comentário publicado", "Obrigado pela tua avaliação!");
+                renderComments();
+            } catch {
+                showToast("Erro", "Não foi possível publicar.");
+            }
+        });
+    } else {
+        formWrapper.innerHTML = `
+            <div class="comment-login-notice">
+                <p><strong>Faz login</strong> para deixar a tua avaliação.</p>
+                <button id="loginToComment" class="btn btn-primary">Entrar ou criar conta</button>
+            </div>
+        `;
+        $("loginToComment")?.addEventListener("click", () => {
+            switchAuthTab("login");
+            openModal("loginModal");
+        });
+    }
+
+    if (!comments.length) {
+        list.innerHTML = `<div class="comments-empty">Ainda não há avaliações. Sê o primeiro a comentar!</div>`;
+        return;
+    }
+
+    list.innerHTML = [...comments].reverse().map(c => {
+        const initial = c.name.trim().charAt(0).toUpperCase();
+        const stars = "★".repeat(c.rating) + "☆".repeat(5 - c.rating);
+        const canDelete = currentUser && (currentUser.id === c.userId || currentUser.role === "admin");
+        return `
+            <div class="comment-card">
+                <div class="comment-header">
+                    <div class="comment-author">
+                        <div class="comment-avatar">${escapeHtml(initial)}</div>
+                        <div>
+                            <strong>${escapeHtml(c.name)}</strong>
+                            <small>${new Date(c.date).toLocaleDateString("pt-AO")}</small>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="comment-rating">${stars}</span>
+                        ${canDelete ? `<button class="comment-delete" data-delete-comment="${c.id}">Remover</button>` : ""}
+                    </div>
+                </div>
+                <p class="comment-text">${escapeHtml(c.text)}</p>
+            </div>
+        `;
+    }).join("");
+
+    list.querySelectorAll("[data-delete-comment]").forEach(btn => {
+        btn.addEventListener("click", () => deleteComment(Number(btn.dataset.deleteComment)));
+    });
+}
+
+async function deleteComment(id) {
+    const c = comments.find(x => x.id === id);
+    if (!c) return;
+    if (!confirm("Remover este comentário?")) return;
+    try {
+        await fetch(`/api/comments/${id}`, { method: "DELETE" });
+        showToast("Removido", "Comentário eliminado.");
+        renderComments();
+    } catch {
+        showToast("Erro", "Não foi possível remover.");
+    }
+}
+
+/* ==========================================================
+   31 — RESET ADMIN (botão)
+========================================================== */
+function setupResetButton() {
+    const btn = $("resetAllData");
+    if (!btn) return;
+
+    btn.addEventListener("click", async () => {
+        if (!isAdmin()) {
+            showToast("Sem permissão", "Apenas administradores.");
+            return;
+        }
+        if (!confirm("⚠️ Isto vai apagar TODOS os dados de produtos, jogos, programas, serviços e carrossel,\ne restaurar os valores originais.\n\nContinuar?")) return;
+
+        forceResetAllData();
+
+        // Envia tudo de novo para o servidor
+        pushToServer("products", products);
+        pushToServer("games", games);
+        pushToServer("software", software);
+        pushToServer("services", services);
+        pushToServer("carousel", carouselSlides);
+
+        // Re-render
+        renderProducts();
+        renderGames();
+        renderSoftware();
+        renderServices();
+        renderCarousel();
+        renderAdmin();
+        renderCart();
+        updateFavoritesCount();
+
+        showToast("✅ Restaurado", "Dados originais restaurados.");
+    });
+}
+
+/* ==========================================================
+   31.5 — GARANTIR DEFAULTS (safety net)
+========================================================== */
+function ensureDefaults() {
+    let algumaCoisaFoiCorrigida = false;
+
+    const checks = [
+        { nome: "products",       atual: products,       fallback: DEFAULT_PRODUCTS, set: v => { products = v;       } },
+        { nome: "games",          atual: games,          fallback: DEFAULT_GAMES,    set: v => { games = v;          } },
+        { nome: "software",       atual: software,       fallback: DEFAULT_SOFTWARE, set: v => { software = v;       } },
+        { nome: "services",       atual: services,       fallback: DEFAULT_SERVICES, set: v => { services = v;       } },
+        { nome: "carouselSlides", atual: carouselSlides, fallback: DEFAULT_CAROUSEL, set: v => { carouselSlides = v; } }
+    ];
+
+    checks.forEach(c => {
+        if (!Array.isArray(c.atual) || c.atual.length === 0) {
+            console.warn(`⚠️ ${c.nome} estava vazio no boot — a restaurar defaults`);
+            c.set([...c.fallback]);
+            algumaCoisaFoiCorrigida = true;
+        }
+    });
+
+    if (algumaCoisaFoiCorrigida) {
+        console.log("✅ Defaults restaurados");
+        // Guarda no localStorage E no servidor
+        saveData(STORAGE.products, products);
+        saveData(STORAGE.games, games);
+        saveData(STORAGE.software, software);
+        saveData(STORAGE.services, services);
+        saveData(STORAGE.carousel, carouselSlides);
+    }
+}
+
+/* ==========================================================
+   32 — INICIALIZAÇÃO
 ========================================================== */
 function initialize() {
+    console.log("🚀 initialize() — início");
+
     $("refreshInvoices")?.addEventListener("click", loadInvoices);
     $("refreshLogins")?.addEventListener("click", loadLogins);
 
@@ -3040,70 +3035,124 @@ function initialize() {
     previewImage("gameImageFile", "gameImagePreview");
     previewImage("softwareImageFile", "softwareImagePreview");
 
-    setupThemeToggle();
-    setupMobileMenu();
-    setupFilters();
-    setupProductClickHandlers();
-    setupCartControls();
-    setupCheckout();
-    setupModals();
-    setupAppointment();
-    setupAuth();
-    setupAdminTabs();
-    setupProductAdmin();
-    setupServiceAdmin();
-    setupGameAdmin();
-    setupSoftwareAdmin();
-    setupCarouselAdmin();
-    setupHeroImageAdmin();
-    setupOwnerPhotoAdmin();
-    setupFavorites();
-    setupContact();
-    setupToastClose();
-    setupClientsAdmin();
+    safeCall("setupThemeToggle", setupThemeToggle);
+    safeCall("setupMobileMenu", setupMobileMenu);
+    safeCall("setupFilters", setupFilters);
+    safeCall("setupProductClickHandlers", setupProductClickHandlers);
+    safeCall("setupCartControls", setupCartControls);
+    safeCall("setupCheckout", setupCheckout);
+    safeCall("setupModals", setupModals);
+    safeCall("setupAppointment", setupAppointment);
+    safeCall("setupAuth", setupAuth);
+    safeCall("setupAdminTabs", setupAdminTabs);
+    safeCall("setupProductAdmin", setupProductAdmin);
+    safeCall("setupServiceAdmin", setupServiceAdmin);
+    safeCall("setupGameAdmin", setupGameAdmin);
+    safeCall("setupSoftwareAdmin", setupSoftwareAdmin);
+    safeCall("setupCarouselAdmin", setupCarouselAdmin);
+    safeCall("setupHeroImageAdmin", setupHeroImageAdmin);
+    safeCall("setupOwnerPhotoAdmin", setupOwnerPhotoAdmin);
+    safeCall("setupFavorites", setupFavorites);
+    safeCall("setupContact", setupContact);
+    safeCall("setupToastClose", setupToastClose);
+    safeCall("setupClientsAdmin", setupClientsAdmin);
+    safeCall("setupResetButton", setupResetButton);
 
-    renderProducts();
-    renderCart();
-    renderServices();
-    renderGames();
-    renderSoftware();
-    renderCarousel();
-    renderComments();
-    loadOwnerPhoto();
-    loadFavorites();
-    updateFavoritesCount();
+    safeCall("renderProducts", renderProducts);
+    safeCall("renderCart", renderCart);
+    safeCall("renderServices", renderServices);
+    safeCall("renderGames", renderGames);
+    safeCall("renderSoftware", renderSoftware);
+    safeCall("renderCarousel", renderCarousel);
+    safeCall("renderComments", renderComments);
+    safeCall("loadOwnerPhoto", loadOwnerPhoto);
+    safeCall("loadFavorites", loadFavorites);
+    safeCall("updateFavoritesCount", updateFavoritesCount);
+    safeCall("updateOpenStatus", updateOpenStatus);
 
-    updateOpenStatus();
     setInterval(updateOpenStatus, 60000);
-
     observeReveals();
+
+    console.log("✅ initialize() — fim");
+}
+
+/* ==========================================================
+   Fallback — força .reveal visível se algo correr mal
+========================================================== */
+function startRevealFallback() {
+    // Roda 3 vezes: em 1s, 3s e 6s
+    // Se algum elemento estiver na viewport mas ainda invisível → força
+    const run = () => {
+        const vh = window.innerHeight;
+        const stuck = document.querySelectorAll(".reveal:not(.visible)");
+        let forced = 0;
+
+        stuck.forEach(el => {
+            const rect = el.getBoundingClientRect();
+            if (rect.top < vh && rect.bottom > 0) {
+                el.classList.add("visible", "stuck");
+                forced++;
+            }
+        });
+
+        if (forced > 0) {
+            console.warn(`⚠️ Fallback forçou ${forced} elementos visíveis`);
+        }
+    };
+
+    setTimeout(run, 1000);
+    setTimeout(run, 3000);
+    setTimeout(run, 6000);
 }
 
 /* ==========================================================
    ARRANQUE
 ========================================================== */
 async function boot() {
-    try {
-        startIntro();
-    } catch (err) {
+    console.log("🚀 A arrancar EdZZ-Spot AO...");
+
+    // 1) Reset automático se a versão de dados for antiga
+    try { checkDataVersion(); }
+    catch (e) { console.error("Erro checkDataVersion:", e); }
+
+    // 2) Intro
+    try { startIntro(); }
+    catch (err) {
         console.error("Intro falhou:", err);
         const s = document.getElementById("introScreen");
         if (s) s.style.display = "none";
     }
 
-    try {
-        await syncFromServer();
-    } catch (err) {
-        console.warn("Sync falhou:", err);
-    }
-
-    try {
-        initialize();
-    } catch (err) {
-        console.error("Initialize falhou:", err);
+    // 3) Init
+    try { initialize(); }
+    catch (err) {
+        console.error("❌ Initialize falhou:", err);
         const s = document.getElementById("introScreen");
         if (s) s.style.display = "none";
     }
+
+    // 4) Sync servidor + re-render
+    try {
+        const syncPromise = syncFromServer();
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("timeout 5s")), 5000)
+        );
+        await Promise.race([syncPromise, timeoutPromise]);
+        console.log("✅ syncFromServer() completou");
+
+        // 🛡️ Safety net: se algo estiver vazio, restaura defaults
+        safeCall("ensureDefaults", ensureDefaults);
+
+        safeCall("renderProducts (sync)", renderProducts);
+        safeCall("renderGames (sync)", renderGames);
+        safeCall("renderSoftware (sync)", renderSoftware);
+        safeCall("renderServices (sync)", renderServices);
+        safeCall("renderCarousel (sync)", renderCarousel);
+    } catch (err) {
+        console.warn("⚠️ Sync falhou ou timeout — a usar dados locais:", err.message);
+    }
+    // 🛡️ Fallback: se em 2s ainda houver .reveal escondidos, força-os visíveis
+    startRevealFallback();
 }
 
 if (document.readyState === "loading") {
