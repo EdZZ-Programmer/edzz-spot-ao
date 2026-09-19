@@ -622,33 +622,149 @@
             <div><span class="section-label">CHECKOUT</span><h2>Finalizar pedido</h2></div>
             <button id="closeCheckoutModal" class="modal-close">×</button>
         </header>
-        <div class="checkout-layout">
-            <form id="checkoutForm">
-                <div class="form-group"><label for="customerName">Nome completo</label><input id="customerName" name="customerName" type="text" required></div>
-                <div class="form-row">
-                    <div class="form-group"><label for="customerPhone">Telefone</label><input id="customerPhone" name="customerPhone" type="tel" required></div>
-                    <div class="form-group"><label for="customerEmail">Email</label><input id="customerEmail" name="customerEmail" type="email" required></div>
-                </div>
-                <div class="form-group"><label for="customerAddress">Endereço</label><textarea id="customerAddress" name="customerAddress" rows="3" required></textarea></div>
-                <div class="form-group">
-                    <label for="paymentMethod">Método de pagamento</label>
-                    <select id="paymentMethod" name="paymentMethod" required>
-                        <option value="">Selecionar</option>
-                        <option value="Pagamento na entrega">Pagamento na entrega</option>
-                        <option value="Transferência bancária">Transferência bancária</option>
-                        <option value="Multicaixa Express">Multicaixa Express</option>
-                    </select>
-                    <small>Demonstração. Nenhum pagamento real será processado.</small>
-                </div>
-                <button class="btn btn-primary" type="submit">Confirmar pedido ✓</button>
-            </form>
-            <aside class="checkout-summary">
-                <span class="section-label">RESUMO</span>
-                <h3>Total</h3>
-                <strong id="checkoutTotal" class="checkout-total">0 Kz</strong>
-                <p>Depois da confirmação será gerado um número de pedido.</p>
-            </aside>
+
+        <!-- Barra de passos -->
+        <div class="checkout-steps">
+            <div class="checkout-step active" data-checkout-step="1">
+                <span class="checkout-step-dot">1</span>
+                <span class="checkout-step-label">Dados</span>
+            </div>
+            <div class="checkout-step-line"></div>
+            <div class="checkout-step" data-checkout-step="2">
+                <span class="checkout-step-dot">2</span>
+                <span class="checkout-step-label">Pagamento</span>
+            </div>
         </div>
+
+        <form id="checkoutForm" novalidate>
+
+            <!-- ========== PASSO 1 — DADOS ========== -->
+            <div class="checkout-step-content active" data-checkout-content="1">
+
+                <div class="form-group">
+                    <label for="customerName">Nome completo</label>
+                    <input id="customerName" name="customerName" type="text" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="customerPhone">Telefone</label>
+                        <input id="customerPhone" name="customerPhone" type="tel" required placeholder="9XX XXX XXX">
+                    </div>
+                    <div class="form-group">
+                        <label for="customerEmail">Email</label>
+                        <input id="customerEmail" name="customerEmail" type="email" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="customerZone">Zona de entrega</label>
+                    <select id="customerZone" name="customerZone" required>
+                        <option value="">Seleciona a tua zona</option>
+                        <option value="cazenga">Cazenga (sede) — 2.000 Kz</option>
+                        <option value="luanda-centro">Luanda Centro — 5.000 Kz</option>
+                        <option value="luanda-periferia">Luanda Periferia — 7.500 Kz</option>
+                        <option value="fora-luanda">Fora de Luanda — 15.000 Kz</option>
+                    </select>
+                    <small id="freeShippingHint">🚚 Envio grátis em compras acima de 100.000 Kz.</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="customerAddress">Endereço completo</label>
+                    <textarea id="customerAddress" name="customerAddress" rows="3" required placeholder="Rua, número, ponto de referência..."></textarea>
+                </div>
+
+                <div class="checkout-nav">
+                    <div></div>
+                    <button type="button" class="btn btn-primary" id="goToStep2">
+                        Continuar para pagamento →
+                    </button>
+                </div>
+            </div>
+
+            <!-- ========== PASSO 2 — PAGAMENTO ========== -->
+            <div class="checkout-step-content" data-checkout-content="2">
+
+                <div class="checkout-summary-inline">
+                    <div class="checkout-summary-row">
+                        <span>Subtotal</span>
+                        <strong id="summarySubtotal">0 Kz</strong>
+                    </div>
+                    <div class="checkout-summary-row">
+                        <span>Entrega <small id="summaryZoneLabel" class="checkout-zone-label">—</small></span>
+                        <strong id="summaryShipping">0 Kz</strong>
+                    </div>
+                    <div class="checkout-summary-row checkout-summary-total">
+                        <span>Total</span>
+                        <strong id="summaryTotal">0 Kz</strong>
+                    </div>
+                </div>
+
+                <h3 class="checkout-payment-title">Método de pagamento</h3>
+
+                <div class="payment-methods">
+
+                    <label class="payment-card">
+                        <input type="radio" name="paymentMethod" value="Multicaixa Express" hidden>
+                        <span class="payment-check">✓</span>
+                        <div class="payment-icon" style="background:#e30613;color:#fff;">MC</div>
+                        <div class="payment-text">
+                            <strong>Multicaixa Express</strong>
+                            <small>Pague via app</small>
+                        </div>
+                    </label>
+
+                    <label class="payment-card">
+                        <input type="radio" name="paymentMethod" value="Referência" hidden>
+                        <span class="payment-check">✓</span>
+                        <div class="payment-icon" style="background:#ffcc00;color:#001018;">R</div>
+                        <div class="payment-text">
+                            <strong>Referência</strong>
+                            <small>ATM ou Homebanking</small>
+                        </div>
+                    </label>
+
+                    <label class="payment-card">
+                        <input type="radio" name="paymentMethod" value="Pagamento na entrega" hidden>
+                        <span class="payment-check">✓</span>
+                        <div class="payment-icon" style="background:#00b8d4;color:#fff;">🚚</div>
+                        <div class="payment-text">
+                            <strong>Pagamento na entrega</strong>
+                            <small>Pague quando receber</small>
+                        </div>
+                    </label>
+
+                    <label class="payment-card">
+                        <input type="radio" name="paymentMethod" value="Transferência bancária" hidden>
+                        <span class="payment-check">✓</span>
+                        <div class="payment-icon" style="background:#0f172a;color:#fff;">🏛</div>
+                        <div class="payment-text">
+                            <strong>Transferência bancária</strong>
+                            <small>IBAN / BAI / BFA</small>
+                        </div>
+                    </label>
+
+                </div>
+
+                <!-- Campos dinâmicos por método -->
+                <div id="paymentDynamicFields" class="payment-dynamic-fields"></div>
+
+                <div class="checkout-security-badge">
+                    <span class="checkout-security-icon">🔒</span>
+                    <span>Compra segura — os teus dados nunca são partilhados.</span>
+                </div>
+
+                <div class="checkout-nav">
+                    <button type="button" class="btn btn-secondary" id="backToStep1">
+                        ← Voltar
+                    </button>
+                    <button type="submit" class="btn btn-primary btn-pay" id="payButton">
+                        Pagar <span id="payButtonTotal">0 Kz</span>
+                    </button>
+                </div>
+            </div>
+
+        </form>
     </div>
 </div>
 

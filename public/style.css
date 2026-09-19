@@ -2603,6 +2603,381 @@ body.light-mode .main-nav {
     }
 }
 
+/* ==========================================================
+   FASE B — CHECKOUT PROFISSIONAL
+========================================================== */
+
+/* Barra de passos */
+.checkout-steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 22px 24px 6px;
+}
+.checkout-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--muted);
+    font-size: .82rem;
+    font-weight: 700;
+    transition: var(--tr);
+}
+.checkout-step-dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: .78rem;
+    font-weight: 800;
+    background: rgba(255,255,255,.05);
+    border: 1.5px solid var(--border);
+    transition: var(--tr);
+}
+.checkout-step.active {
+    color: var(--text);
+}
+.checkout-step.active .checkout-step-dot {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #001018;
+    box-shadow: 0 0 0 4px rgba(0,184,212,.18);
+}
+.checkout-step.done .checkout-step-dot {
+    background: var(--success);
+    border-color: var(--success);
+    color: #fff;
+}
+.checkout-step.done {
+    color: var(--text);
+}
+.checkout-step-line {
+    width: 50px;
+    height: 2px;
+    margin: 0 14px;
+    background: var(--border);
+    transition: var(--tr);
+}
+.checkout-step-line.done {
+    background: var(--success);
+}
+
+/* Conteúdo dos passos */
+.checkout-step-content {
+    display: none;
+    padding: 14px 24px 24px;
+    animation: fadeStep .25s ease;
+}
+.checkout-step-content.active {
+    display: block;
+}
+@keyframes fadeStep {
+    from { opacity: 0; transform: translateX(10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* Resumo inline (Passo 2) */
+.checkout-summary-inline {
+    padding: 16px 18px;
+    margin-bottom: 22px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: rgba(255,255,255,.025);
+}
+.checkout-summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: .88rem;
+}
+.checkout-summary-row strong {
+    font-weight: 700;
+}
+.checkout-summary-total {
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+    padding-top: 14px;
+    font-family: Orbitron, sans-serif;
+    font-size: 1.05rem;
+    color: var(--primary);
+}
+.checkout-zone-label {
+    color: var(--muted);
+    font-size: .75rem;
+    font-weight: 500;
+    margin-left: 4px;
+}
+
+/* Título secção pagamento */
+.checkout-payment-title {
+    font-family: Orbitron, sans-serif;
+    font-size: .95rem;
+    margin-bottom: 14px;
+    color: var(--text);
+}
+
+/* Cartas de pagamento */
+.payment-methods {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+.payment-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    background: rgba(255,255,255,.02);
+    cursor: pointer;
+    transition: var(--tr);
+    user-select: none;
+}
+.payment-card:hover {
+    border-color: var(--primary-border);
+    background: rgba(0,184,212,.04);
+    transform: translateY(-2px);
+}
+.payment-card.selected {
+    border-color: var(--primary);
+    background: var(--primary-soft);
+    box-shadow: 0 8px 20px rgba(0,184,212,.15);
+}
+.payment-check {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #001018;
+    font-size: .75rem;
+    font-weight: 900;
+    display: grid;
+    place-items: center;
+    opacity: 0;
+    transform: scale(.5);
+    transition: var(--tr);
+}
+.payment-card.selected .payment-check {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.payment-icon {
+    flex-shrink: 0;
+    width: 46px;
+    height: 46px;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    font-weight: 900;
+    font-size: 1rem;
+    letter-spacing: .04em;
+    box-shadow: 0 4px 12px rgba(0,0,0,.15);
+}
+.payment-text {
+    flex: 1;
+    min-width: 0;
+}
+.payment-text strong {
+    display: block;
+    font-size: .88rem;
+    margin-bottom: 2px;
+    font-family: Inter, sans-serif;
+    font-weight: 700;
+}
+.payment-text small {
+    display: block;
+    font-size: .72rem;
+    color: var(--muted);
+}
+
+/* Campos dinâmicos */
+.payment-dynamic-fields {
+    display: none;
+    padding: 18px;
+    margin-bottom: 18px;
+    border: 1px dashed var(--primary-border);
+    border-radius: var(--radius);
+    background: rgba(0,184,212,.04);
+    animation: fadeStep .25s ease;
+}
+.payment-dynamic-fields.active {
+    display: block;
+}
+
+.payment-info-text {
+    font-size: .88rem;
+    color: var(--muted);
+    line-height: 1.55;
+    margin-bottom: 12px;
+}
+.payment-info-text strong {
+    color: var(--text);
+}
+
+/* Caixa de referência */
+.payment-reference-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 18px;
+    margin: 12px 0;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(0,184,212,.15), rgba(124,60,255,.1));
+    border: 1px solid var(--primary-border);
+    flex-wrap: wrap;
+}
+.payment-reference-value {
+    font-family: Orbitron, monospace;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--primary);
+    letter-spacing: .15em;
+    word-break: break-all;
+}
+.payment-copy-btn {
+    padding: 9px 16px;
+    border-radius: 9px;
+    background: var(--primary);
+    color: #001018;
+    font-size: .8rem;
+    font-weight: 800;
+    transition: var(--tr);
+    white-space: nowrap;
+}
+.payment-copy-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,184,212,.3);
+}
+
+.payment-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: .78rem;
+    color: var(--muted);
+    margin-top: 8px;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.payment-meta strong {
+    color: var(--text);
+}
+
+/* IBAN */
+.payment-iban-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+}
+.payment-iban-row:last-of-type { border-bottom: 0; }
+.payment-iban-row span:first-child {
+    color: var(--muted);
+    font-size: .78rem;
+    min-width: 90px;
+}
+.payment-iban-row strong {
+    font-family: Orbitron, monospace;
+    font-size: .82rem;
+    letter-spacing: .05em;
+    word-break: break-all;
+}
+
+/* Badge segurança */
+.checkout-security-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    margin-bottom: 18px;
+    border-radius: 10px;
+    background: rgba(37,211,102,.08);
+    border: 1px solid rgba(37,211,102,.3);
+    color: var(--success);
+    font-size: .82rem;
+    font-weight: 600;
+}
+.checkout-security-icon {
+    font-size: 1.1rem;
+}
+
+/* Navegação */
+.checkout-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+.checkout-nav .btn {
+    min-width: 160px;
+}
+.btn-pay {
+    background: var(--success) !important;
+    color: #fff !important;
+    box-shadow: 0 8px 22px rgba(37,211,102,.3);
+}
+.btn-pay:hover {
+    background: #1fb955 !important;
+    box-shadow: 0 12px 28px rgba(37,211,102,.45);
+}
+.btn-pay:disabled {
+    opacity: .7;
+    cursor: wait;
+}
+
+/* Light mode */
+body.light-mode .checkout-summary-inline {
+    background: #f7f9fc;
+}
+body.light-mode .payment-card {
+    background: #ffffff;
+}
+body.light-mode .payment-card.selected {
+    background: rgba(0,184,212,.06);
+}
+body.light-mode .payment-dynamic-fields {
+    background: rgba(0,184,212,.05);
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+    .payment-methods {
+        grid-template-columns: 1fr;
+    }
+    .checkout-nav {
+        flex-direction: column-reverse;
+        align-items: stretch;
+    }
+    .checkout-nav .btn {
+        width: 100%;
+    }
+    .checkout-step-line {
+        width: 30px;
+        margin: 0 8px;
+    }
+    .checkout-step-label {
+        display: none;
+    }
+    .payment-reference-value {
+        font-size: 1.2rem;
+    }
+}
+
 /* IMPRESSÃO */
 @media print {
     body > *:not(#invoiceModal) { display: none !important; }

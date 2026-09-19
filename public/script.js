@@ -1064,59 +1064,401 @@ function closeCart() {
 }
 
 /* ==========================================================
-   16 — CHECKOUT
+   16 — CHECKOUT PROFISSIONAL (2 passos + 4 métodos)
 ========================================================== */
-function setupCheckout() {
-    $("checkoutButton")?.addEventListener("click", () => {
-        if (!cart.length) return showToast("Carrinho vazio", "Adiciona pelo menos um produto.");
-        closeCart();
-        openModal("checkoutModal");
+
+/* Zonas de entrega com taxas variáveis */
+const SHIPPING_ZONES = {
+    "cazenga":          { label: "Cazenga (sede)",  rate: 2000  },
+    "luanda-centro":    { label: "Luanda Centro",   rate: 5000  },
+    "luanda-periferia": { label: "Luanda Periferia", rate: 7500 },
+    "fora-luanda":      { label: "Fora de Luanda",  rate: 15000 }
+};
+
+const FREE_SHIPPING_MIN = 100000;
+
+/* Estado do checkout */
+let checkoutState = {
+    step: 1,
+    zone: "",
+    paymentMethod: "",
+    reference: "",
+    referenceExpires: ""
+};
+
+/* ---------- Cálculos ---------- */
+function getCartSubtotal() {
+    return cart.reduce((s, i) => s + (Number(i.price) || 0) * (i.quantity || 1), 0);
+}
+
+function calculateShipping(zoneKey, subtotal) {
+    if (!zoneKey || !SHIPPING_ZONES[zoneKey]) return 0;
+    if (subtotal >= FREE_SHIPPING_MIN) return 0;   // 🎉 envio grátis
+    return SHIPPING_ZONES[zoneKey].rate;
+}
+
+function formatKzShort(value) {
+    return new Intl.NumberFormat("pt-AO").format(Number(value) || 0) + " Kz";
+}
+
+/* ---------- Passos ---------- */
+function goToCheckoutStep(step) {
+    checkoutState.step = step;
+
+    document.querySelectorAll("[data-checkout-step]").forEach(el => {
+        const n = Number(el.dataset.checkoutStep);
+        el.classList.toggle("active", n === step);
+        el.classList.toggle("done", n < step);
     });
 
-    $("checkoutForm")?.addEventListener("submit", e => {
+    document.querySelectorAll(".checkout-step-line").forEach((line, i) => {
+        line.classList.toggle("done", (i + 1) < step);
+    });
+
+    document.querySelectorAll("[data-checkout-content]").forEach(el => {
+        el.classList.toggle("active", Number(el.dataset.checkoutContent) === step);
+    });
+
+    // Foco no primeiro campo do passo
+    setTimeout(() => {
+        const active = document.querySelector(`[data-checkout-content="${step}"]`);
+        active?.querySelector("input, select, textarea")?.focus();
+    }, 150);
+}
+
+function validateCheckoutStep1() {
+    const name = $("customerName")?.value.trim();
+    const phone = $("customerPhone")?.value.trim();
+    const email = $("customerEmail")?.value.trim();
+    const zone = $("customerZone")?.value;
+    const address = $("customerAddress")?.value.trim();
+
+    if (!name || name.length < 3) {
+        showToast("Atenção", "Escreve o teu nome completo.");
+        $("customerName")?.focus();
+        return false;
+    }
+    if (!phone || phone.length < 9) {
+        showToast("Atenção", "Telefone inválido.");
+        $("customerPhone")?.focus();
+        return false;
+    }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showToast("Atenção", "Email inválido.");
+        $("customerEmail")?.focus();
+        return false;
+    }
+    if (!zone) {
+        showToast("Atenção", "Seleciona a zona de entrega.");
+        $("customerZone")?.focus();
+        return false;
+    }
+    if (!address || address.length < 5) {
+        showToast("Atenção", "Endereço completo é obrigatório.");
+        $("customerAddress")?.focus();
+        return false;
+    }
+
+    checkoutState.zone = zone;
+    return true;
+}
+
+/* ---------- Resumo do Passo 2 ---------- */
+function updateCheckoutSummary() {
+    const subtotal = getCartSubtotal();
+    const shipping = calculateShipping(checkoutState.zone, subtotal);
+    const total = subtotal + shipping;
+
+    setText("summarySubtotal", formatKzShort(subtotal));
+    setText("summaryShipping", shipping === 0 ? "Grátis" : formatKzShort(shipping));
+    setText("summaryTotal", formatKzShort(total));
+    setText("payButtonTotal", formatKzShort(total));
+
+    const zoneLabel = $("summaryZoneLabel");
+    if (zoneLabel) {
+        zoneLabel.textContent = checkoutState.zone
+            ? `· ${SHIPPING_ZONES[checkoutState.zone].label}`
+            : "";
+    }
+}
+
+/* ---------- Métodos de pagamento ---------- */
+function generatePaymentReference() {
+    // Gera referência tipo 123 456 789
+    const n = Math.floor(100000000 + Math.random() * 900000000);
+    const str = String(n);
+    return `${str.slice(0,3)} ${str.slice(3,6)} ${str.slice(6,9)}`;
+}
+
+function selectPaymentMethod(method) {
+    checkoutState.paymentMethod = method;
+
+    document.querySelectorAll(".payment-card").forEach(card => {
+        const input = card.querySelector("input[type='radio']");
+        card.classList.toggle("selected", input?.value === method);
+        if (input) input.checked = (input.value === method);
+    });
+
+    renderPaymentDynamicFields();
+}
+
+function renderPaymentDynamicFields() {
+    const box = $("paymentDynamicFields");
+    if (!box) return;
+
+    const method = checkoutState.paymentMethod;
+    const subtotal = getCartSubtotal();
+    const shipping = calculateShipping(checkoutState.zone, subtotal);
+    const total = subtotal + shipping;
+    const phone = $("customerPhone")?.value.trim() || "9XX XXX XXX";
+
+    if (!method) {
+        box.classList.remove("active");
+        box.innerHTML = "";
+        return;
+    }
+
+    box.classList.add("active");
+
+    /* ---- Multicaixa Express ---- */
+    if (method === "Multicaixa Express") {
+        box.innerHTML = `
+            <p class="payment-info-text">
+                📱 Vais receber uma notificação na app <strong>Multicaixa Express</strong>
+                associada ao número <strong>${escapeHtml(phone)}</strong>.
+            </p>
+            <p class="payment-info-text">
+                Abre a app e confirma o pagamento de <strong>${formatKzShort(total)}</strong> para finalizar o pedido.
+            </p>
+            <div class="payment-meta">
+                <span>💡 <strong>Dica:</strong> a confirmação chega em segundos.</span>
+                <span>Expira em 15 min</span>
+            </div>
+        `;
+        return;
+    }
+
+    /* ---- Referência ---- */
+    if (method === "Referência") {
+        if (!checkoutState.reference) {
+            checkoutState.reference = generatePaymentReference();
+            const exp = new Date(Date.now() + 24 * 3600 * 1000);
+            checkoutState.referenceExpires = exp;
+        }
+
+        const expiresLabel = new Date(checkoutState.referenceExpires)
+            .toLocaleString("pt-AO", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+        box.innerHTML = `
+            <p class="payment-info-text">
+                🏧 Paga em qualquer <strong>ATM Multicaixa</strong> ou na tua app de Homebanking
+                usando a referência abaixo:
+            </p>
+            <div class="payment-reference-box">
+                <span class="payment-reference-value" id="refValue">${checkoutState.reference}</span>
+                <button type="button" class="payment-copy-btn" id="copyReferenceBtn">
+                    📋 Copiar
+                </button>
+            </div>
+            <div class="payment-meta">
+                <span>Valor: <strong>${formatKzShort(total)}</strong></span>
+                <span>Válida até: <strong>${expiresLabel}</strong></span>
+            </div>
+        `;
+
+        $("copyReferenceBtn")?.addEventListener("click", () => {
+            copyToClipboard(checkoutState.reference.replace(/\s/g, ""), "Referência");
+        });
+        return;
+    }
+
+    /* ---- Pagamento na entrega ---- */
+    if (method === "Pagamento na entrega") {
+        box.innerHTML = `
+            <p class="payment-info-text">
+                🚚 Pagas <strong>${formatKzShort(total)}</strong> em dinheiro ou Multicaixa
+                diretamente ao estafeta no momento da entrega.
+            </p>
+            <div class="payment-meta">
+                <span>💡 Confirma o valor antes de pagar</span>
+                <span>Sem taxas extra</span>
+            </div>
+        `;
+        return;
+    }
+
+    /* ---- Transferência bancária ---- */
+    if (method === "Transferência bancária") {
+        box.innerHTML = `
+            <p class="payment-info-text">
+                🏛️ Faz a transferência de <strong>${formatKzShort(total)}</strong> para uma das contas abaixo:
+            </p>
+            <div class="payment-iban-row">
+                <span>Banco BAI</span>
+                <strong>0040 0000 1234 5678 9012 3</strong>
+                <button type="button" class="payment-copy-btn" data-copy-iban="004000001234567890123">📋</button>
+            </div>
+            <div class="payment-iban-row">
+                <span>Banco BFA</span>
+                <strong>0006 0000 9876 5432 1098 7</strong>
+                <button type="button" class="payment-copy-btn" data-copy-iban="000600009876543210987">📋</button>
+            </div>
+            <div class="payment-iban-row">
+                <span>Titular</span>
+                <strong>EdZZ-Spot AO</strong>
+            </div>
+            <div class="payment-meta">
+                <span>💡 Envia o comprovativo por WhatsApp</span>
+                <span>Confirmação em até 1h</span>
+            </div>
+        `;
+
+        box.querySelectorAll("[data-copy-iban]").forEach(btn => {
+            btn.addEventListener("click", () => {
+                copyToClipboard(btn.dataset.copyIban, "IBAN");
+            });
+        });
+        return;
+    }
+}
+
+async function copyToClipboard(text, label = "Texto") {
+    try {
+        await navigator.clipboard.writeText(text);
+        showToast("📋 Copiado", `${label} copiado para o clipboard.`);
+    } catch {
+        showToast(label, text);
+    }
+}
+
+/* ---------- Setup ---------- */
+function setupCheckout() {
+    /* Botão do carrinho abre o modal */
+    $("checkoutButton")?.addEventListener("click", () => {
+        if (!cart.length) return showToast("Carrinho vazio", "Adiciona pelo menos um produto.");
+
+        closeCart();
+        openModal("checkoutModal");
+
+        // Reset para o passo 1
+        checkoutState = {
+            step: 1,
+            zone: "",
+            paymentMethod: "",
+            reference: "",
+            referenceExpires: ""
+        };
+        goToCheckoutStep(1);
+        $("checkoutForm")?.reset();
+        document.querySelectorAll(".payment-card").forEach(c => c.classList.remove("selected"));
+        $("paymentDynamicFields").classList.remove("active");
+        $("paymentDynamicFields").innerHTML = "";
+    });
+
+    /* Ir para o passo 2 */
+    $("goToStep2")?.addEventListener("click", () => {
+        if (!validateCheckoutStep1()) return;
+        updateCheckoutSummary();
+        goToCheckoutStep(2);
+    });
+
+    /* Voltar para o passo 1 */
+    $("backToStep1")?.addEventListener("click", () => {
+        goToCheckoutStep(1);
+    });
+
+    /* Recálculo automático ao mudar a zona (Passo 1) */
+    $("customerZone")?.addEventListener("change", e => {
+        checkoutState.zone = e.target.value;
+    });
+
+    /* Selecionar método de pagamento (delegação) */
+    document.addEventListener("click", e => {
+        const card = e.target.closest(".payment-card");
+        if (!card) return;
+        const input = card.querySelector("input[type='radio']");
+        if (input) {
+            selectPaymentMethod(input.value);
+        }
+    });
+
+    /* Atualiza o campo telefone quando muda (Multicaixa) */
+    $("customerPhone")?.addEventListener("input", () => {
+        if (checkoutState.paymentMethod === "Multicaixa Express") {
+            renderPaymentDynamicFields();
+        }
+    });
+
+    /* Submit final */
+    $("checkoutForm")?.addEventListener("submit", async e => {
         e.preventDefault();
-        if (!cart.length) return showToast("Carrinho vazio", "Não existem produtos no pedido.");
+
+        if (!cart.length) return showToast("Carrinho vazio", "Adiciona pelo menos um produto.");
+        if (checkoutState.step !== 2) return goToCheckoutStep(2);
+        if (!validateCheckoutStep1()) return goToCheckoutStep(1);
+
+        const method = checkoutState.paymentMethod;
+        if (!method) {
+            return showToast("Atenção", "Escolhe um método de pagamento.");
+        }
+
+        const subtotal = getCartSubtotal();
+        const shipping = calculateShipping(checkoutState.zone, subtotal);
+        const total = subtotal + shipping;
 
         const form = new FormData(e.target);
-        const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
-        const shipping = subtotal > 0 ? 5000 : 0;
 
         const order = {
             id: generateOrderNumber(),
             date: new Date().toISOString(),
             customer: {
-                name: form.get("customerName"),
-                phone: form.get("customerPhone"),
-                email: form.get("customerEmail"),
-                address: form.get("customerAddress")
+                name: form.get("customerName")?.trim(),
+                phone: form.get("customerPhone")?.trim(),
+                email: form.get("customerEmail")?.trim(),
+                address: form.get("customerAddress")?.trim(),
+                zone: checkoutState.zone,
+                zoneLabel: SHIPPING_ZONES[checkoutState.zone]?.label || ""
             },
-            paymentMethod: form.get("paymentMethod"),
+            paymentMethod: method,
+            paymentReference: method === "Referência" ? checkoutState.reference : "",
+            paymentReferenceExpires: method === "Referência" && checkoutState.referenceExpires
+                ? new Date(checkoutState.referenceExpires).toISOString()
+                : "",
             items: [...cart],
             subtotal,
             shipping,
-            total: subtotal + shipping,
+            total,
             status: "Pendente"
         };
+
+        // Loading state
+        const payBtn = $("payButton");
+        const originalText = payBtn?.innerHTML;
+        if (payBtn) {
+            payBtn.disabled = true;
+            payBtn.innerHTML = "⏳ A processar...";
+        }
 
         orders.push(order);
         saveData(STORAGE.orders, orders);
 
+        // Enviar para o servidor
         fetch("/api/orders", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(order)
         }).catch(err => console.warn("Erro ao enviar pedido:", err));
 
+        // Pequeno delay para parecer real
+        await new Promise(r => setTimeout(r, 1800));
+
+        if (payBtn) {
+            payBtn.disabled = false;
+            payBtn.innerHTML = originalText;
+        }
+
         showPurchaseAnimation(order);
     });
-}
-
-function generateOrderNumber() {
-    const year = new Date().getFullYear();
-    const key = `edzzspot_sequence_${year}`;
-    const seq = Number(localStorage.getItem(key) || 0) + 1;
-    localStorage.setItem(key, seq);
-    return `EDZ-${year}-${String(seq).padStart(4, "0")}`;
 }
 
 function showPurchaseAnimation(order) {
@@ -1143,7 +1485,6 @@ function showPurchaseAnimation(order) {
 function showInvoiceDetails(invoice) {
     if (!invoice) return;
 
-    // Preencher todos os campos
     setText("invoiceOrderNumber", invoice.id || "—");
     setText("invoiceDate", invoice.date
         ? new Date(invoice.date).toLocaleString("pt-AO")
@@ -1151,10 +1492,11 @@ function showInvoiceDetails(invoice) {
     setText("invoiceCustomer", invoice.customer?.name || "—");
     setText("invoicePhone", invoice.customer?.phone || "—");
     setText("invoiceSubtotal", formatKz(invoice.subtotal || 0));
-    setText("invoiceShipping", formatKz(invoice.shipping || 0));
+    setText("invoiceShipping", (invoice.shipping === 0 || !invoice.shipping)
+        ? "Grátis"
+        : formatKz(invoice.shipping));
     setText("invoiceTotal", formatKz(invoice.total || 0));
 
-    // Preencher items
     if ($("invoiceItems")) {
         $("invoiceItems").innerHTML = (invoice.items || []).map(item => `
             <div class="invoice-item">
@@ -1163,28 +1505,42 @@ function showInvoiceDetails(invoice) {
                 <strong>${formatKz((item.price || 0) * (item.quantity || 1))}</strong>
             </div>
         `).join("");
+
+        // Bloco extra (método, referência, zona)
+        const zone = invoice.customer?.zoneLabel || "";
+        const extraBlock = `
+            <div class="invoice-payment-info" style="padding-top:12px;margin-top:12px;border-top:1px dashed #e5e7eb;font-size:.85rem;">
+                ${zone ? `
+                    <div style="display:flex;justify-content:space-between;padding:3px 0;">
+                        <span style="color:#6b7280;">Zona de entrega</span>
+                        <strong>${escapeHtml(zone)}</strong>
+                    </div>` : ""}
+                <div style="display:flex;justify-content:space-between;padding:3px 0;">
+                    <span style="color:#6b7280;">Método de pagamento</span>
+                    <strong>${escapeHtml(invoice.paymentMethod || "—")}</strong>
+                </div>
+                ${invoice.paymentReference ? `
+                    <div style="display:flex;justify-content:space-between;padding:3px 0;">
+                        <span style="color:#6b7280;">Referência</span>
+                        <strong style="font-family:Orbitron,monospace;letter-spacing:.08em;">${escapeHtml(invoice.paymentReference)}</strong>
+                    </div>
+                ` : ""}
+            </div>
+        `;
+        $("invoiceItems").insertAdjacentHTML("beforeend", extraBlock);
     }
 
-    // 🛡️ Abrir o modal com z-index máximo
     const modal = $("invoiceModal");
     if (!modal) {
         console.error("❌ #invoiceModal não existe no HTML");
         return;
     }
-
-    // Mover para o fim do body (garante que fica por cima de tudo)
     if (modal.parentElement !== document.body) {
         document.body.appendChild(modal);
     }
-
-    // Forçar z-index máximo
     modal.style.zIndex = "9500";
-
-    // Abrir
     modal.classList.add("active");
     document.body.classList.add("no-scroll");
-
-    console.log("🧾 Fatura aberta:", invoice.id);
 }
 
 function fillInvoice(order) {
@@ -1193,8 +1549,23 @@ function fillInvoice(order) {
     setText("invoiceCustomer", order.customer.name);
     setText("invoicePhone", order.customer.phone);
     setText("invoiceSubtotal", formatKz(order.subtotal));
-    setText("invoiceShipping", formatKz(order.shipping));
+    setText("invoiceShipping", order.shipping === 0 ? "Grátis" : formatKz(order.shipping));
     setText("invoiceTotal", formatKz(order.total));
+
+    // Info extra: zona + método de pagamento
+    const metaEl = document.querySelector(".invoice-customer");
+    if (metaEl && !metaEl.querySelector(".invoice-zone-extra")) {
+        const zoneDiv = document.createElement("div");
+        zoneDiv.className = "invoice-zone-extra";
+        zoneDiv.innerHTML = `
+            <span>Zona de entrega</span>
+            <strong>${escapeHtml(order.customer.zoneLabel || "—")}</strong>
+        `;
+        metaEl.appendChild(zoneDiv);
+    } else if (metaEl) {
+        const zoneStrong = metaEl.querySelector(".invoice-zone-extra strong");
+        if (zoneStrong) zoneStrong.textContent = order.customer.zoneLabel || "—";
+    }
 
     if ($("invoiceItems")) {
         $("invoiceItems").innerHTML = order.items.map(item => `
@@ -1204,6 +1575,32 @@ function fillInvoice(order) {
                 <strong>${formatKz(item.price * item.quantity)}</strong>
             </div>
         `).join("");
+
+        // Adiciona linha de método de pagamento + referência (se houver)
+        const paymentBlock = `
+            <div class="invoice-payment-info" style="padding-top:12px;margin-top:12px;border-top:1px dashed #e5e7eb;font-size:.85rem;">
+                <div style="display:flex;justify-content:space-between;padding:3px 0;">
+                    <span style="color:#6b7280;">Método de pagamento</span>
+                    <strong>${escapeHtml(order.paymentMethod || "—")}</strong>
+                </div>
+                ${order.paymentReference ? `
+                    <div style="display:flex;justify-content:space-between;padding:3px 0;">
+                        <span style="color:#6b7280;">Referência</span>
+                        <strong style="font-family:Orbitron,monospace;letter-spacing:.08em;">${escapeHtml(order.paymentReference)}</strong>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:3px 0;">
+                        <span style="color:#6b7280;">Válida até</span>
+                        <strong>${order.paymentReferenceExpires
+                            ? new Date(order.paymentReferenceExpires).toLocaleString("pt-AO")
+                            : "—"}</strong>
+                    </div>
+                ` : ""}
+            </div>
+        `;
+
+        const existing = $("invoiceItems").querySelector(".invoice-payment-info");
+        if (existing) existing.remove();
+        $("invoiceItems").insertAdjacentHTML("beforeend", paymentBlock);
     }
 }
 
