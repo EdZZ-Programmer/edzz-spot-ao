@@ -4352,70 +4352,65 @@ function setupMyOrders() {
     });
 }
 
-/* ==========================================================
-   31.7 — BANNER PROMO + NAV DROPDOWN + LIGHT DEFAULT
-========================================================== */
 
-/* ---------- Banner promo dismissível ---------- */
-function setupPromoBanner() {
-    const banner = $("promoBanner");
-    const closeBtn = $("closePromoBanner");
-    if (!banner || !closeBtn) return;
 
-    const wasClosed = localStorage.getItem("edzzspot_banner_closed") === "1";
-    if (wasClosed) {
-        banner.classList.add("hidden");
-        document.body.classList.add("banner-closed");
-    }
-
-    closeBtn.addEventListener("click", () => {
-        banner.classList.add("hidden");
-        document.body.classList.add("banner-closed");
-        localStorage.setItem("edzzspot_banner_closed", "1");
-    });
-}
-
-/* ---------- Nav dropdown (Produtos / Mais) ---------- */
+/* ---------- Nav dropdown (versão corrigida) ---------- */
 function setupNavDropdowns() {
     const dropdowns = document.querySelectorAll(".nav-dropdown");
     if (!dropdowns.length) return;
+
+    function closeAll(except) {
+        dropdowns.forEach(d => {
+            if (d === except) return;
+            d.classList.remove("open");
+            const t = d.querySelector(".nav-dropdown-toggle");
+            if (t) t.setAttribute("aria-expanded", "false");
+        });
+    }
 
     dropdowns.forEach(dd => {
         const toggle = dd.querySelector(".nav-dropdown-toggle");
         if (!toggle) return;
 
         toggle.addEventListener("click", e => {
+            e.preventDefault();
             e.stopPropagation();
+
             const wasOpen = dd.classList.contains("open");
+            closeAll(dd);
 
-            // Fecha os outros
-            dropdowns.forEach(d => d.classList.remove("open"));
-
-            // Abre/fecha este
-            if (!wasOpen) dd.classList.add("open");
+            if (!wasOpen) {
+                dd.classList.add("open");
+                toggle.setAttribute("aria-expanded", "true");
+            } else {
+                dd.classList.remove("open");
+                toggle.setAttribute("aria-expanded", "false");
+            }
         });
 
-        // Fecha ao clicar num link do menu
+        // Fecha ao clicar num link
         dd.querySelectorAll(".nav-dropdown-link").forEach(link => {
             link.addEventListener("click", () => {
                 dd.classList.remove("open");
-                // Se for mobile, fecha o menu principal
+                toggle.setAttribute("aria-expanded", "false");
                 $("mainNav")?.classList.remove("active");
             });
         });
     });
 
-    // Fecha ao clicar fora
+    // Fecha ao clicar fora — usa 'click' em vez de 'pointerdown'
+    // para não interferir com outros handlers
     document.addEventListener("click", e => {
         if (!e.target.closest(".nav-dropdown")) {
-            dropdowns.forEach(d => d.classList.remove("open"));
+            closeAll();
         }
     });
 
     // Fecha com Escape
     document.addEventListener("keydown", e => {
         if (e.key === "Escape") {
-            dropdowns.forEach(d => d.classList.remove("open"));
+            closeAll();
+            $("mainNav")?.classList.remove("active");
         }
     });
 }
@@ -4473,9 +4468,9 @@ function initialize() {
     safeCall("setupClientsAdmin", setupClientsAdmin);
     safeCall("setupResetButton", setupResetButton);
     safeCall("applyDefaultTheme", applyDefaultTheme);
-    safeCall("setupPromoBanner", setupPromoBanner);
     safeCall("setupNavDropdowns", setupNavDropdowns);
     safeCall("setupGlobalSearch", setupGlobalSearch);
+    safeCall("setupNavDropdowns", setupNavDropdowns);
     safeCall("setupAdminSearch", setupAdminSearch);
     safeCall("setupMyOrders", setupMyOrders);
 

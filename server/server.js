@@ -142,7 +142,16 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use(express.static(path.join(__dirname, "..", "public")));
+// 🛡️ Cache-control: HTML, CSS, JS nunca em cache; imagens sim
+app.use(express.static(path.join(__dirname, "..", "public"), {
+    setHeaders: (res, filePath) => {
+        if (/\.(html|css|js)$/.test(filePath)) {
+            res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+            res.setHeader("Pragma", "no-cache");
+            res.setHeader("Expires", "0");
+        }
+    }
+}));
 
 /* ==========================================================
    API — REGISTO
