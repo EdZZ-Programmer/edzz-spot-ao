@@ -668,14 +668,31 @@ function buildDynamicFilterOptions() {
     }
 }
 
+/* Retorna o HTML do badge de stock conforme a quantidade */
+function stockBadgeHTML(product) {
+    const stock = Number(product.stock ?? 0);
+
+    if (stock <= 0) {
+        return `<span class="stock-badge stock-out">🚫 Esgotado</span>`;
+    }
+    if (stock <= 3) {
+        return `<span class="stock-badge stock-low">⚠️ Só ${stock} em stock</span>`;
+    }
+    return `<span class="stock-badge stock-ok">✓ ${stock} em stock</span>`;
+}
+
 function productCardTemplate(product) {
     const favorite = favorites.includes(product.id);
+    const stock = Number(product.stock ?? 0);
+    const isOut = stock <= 0;
+
     return `
-        <article class="product-card reveal" data-product-id="${product.id}">
+        <article class="product-card reveal ${isOut ? "is-out-of-stock" : ""}" data-product-id="${product.id}">
             <div class="product-image">
                 ${product.image
                     ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}">`
                     : `<div class="product-placeholder">💻</div>`}
+                ${stockBadgeHTML(product)}
                 <button class="favorite-button ${favorite ? "active" : ""}"
                         data-favorite="${product.id}" type="button"
                         aria-label="Favorito">${favorite ? "♥" : "♡"}</button>
@@ -694,97 +711,14 @@ function productCardTemplate(product) {
                     <strong class="product-price">${formatKz(product.price)}</strong>
                     <div class="product-actions">
                         <button class="view-product" data-view-product="${product.id}">Detalhes</button>
-                        <button class="add-product" data-add-product="${product.id}">+ Carrinho</button>
+                        ${isOut
+                            ? `<button class="add-product add-product-disabled" disabled>Esgotado</button>`
+                            : `<button class="add-product" data-add-product="${product.id}">+ Carrinho</button>`}
                     </div>
                 </div>
             </div>
         </article>
     `;
-}
-
-function setupFilters() {
-    // Constrói opções dinâmicas primeiro
-    buildDynamicFilterOptions();
-
-    // ---- Categoria (radio) ----
-    document.querySelectorAll('input[name="f-category"]').forEach(radio => {
-        radio.addEventListener("change", () => {
-            if (!radio.checked) return;
-            currentFilter = radio.value;
-            renderProducts();
-        });
-    });
-
-    // ---- Preço (chips) ----
-    document.querySelectorAll(".filter-chip[data-price]").forEach(chip => {
-        chip.addEventListener("click", () => {
-            document.querySelectorAll(".filter-chip[data-price]").forEach(c => c.classList.remove("active"));
-            chip.classList.add("active");
-            currentPriceFilter = chip.dataset.price;
-            renderProducts();
-        });
-    });
-
-    // ---- Processador (radio, delegado) ----
-    document.addEventListener("change", e => {
-        if (e.target.name === "f-processor" && e.target.checked) {
-            currentProcessorFilter = e.target.value;
-            renderProducts();
-        }
-        if (e.target.name === "f-ram" && e.target.checked) {
-            currentRamFilter = e.target.value;
-            renderProducts();
-        }
-    });
-
-    // ---- Ordenação ----
-    $("sortSelect")?.addEventListener("change", e => {
-        currentSort = e.target.value;
-        renderProducts();
-    });
-
-    // ---- Pesquisa ----
-    $("productSearch")?.addEventListener("input", e => {
-        currentSearch = e.target.value;
-        renderProducts();
-    });
-
-    // ---- Limpar filtros ----
-    $("clearFilters")?.addEventListener("click", () => {
-        currentFilter = "all";
-        currentPriceFilter = "all";
-        currentProcessorFilter = "all";
-        currentRamFilter = "all";
-        currentSearch = "";
-        currentSort = "relevance";
-
-        // Reset visual
-        document.querySelector('input[name="f-category"][value="all"]').checked = true;
-        document.querySelector('input[name="f-processor"][value="all"]').checked = true;
-        document.querySelector('input[name="f-ram"][value="all"]').checked = true;
-        document.querySelectorAll(".filter-chip").forEach(c =>
-            c.classList.toggle("active", c.dataset.price === "all")
-        );
-        if ($("productSearch")) $("productSearch").value = "";
-        if ($("sortSelect")) $("sortSelect").value = "relevance";
-
-        renderProducts();
-        showToast("Filtros", "Todos os filtros foram limpos.");
-    });
-
-    // ---- Sidebar mobile ----
-    $("openSidebar")?.addEventListener("click", () => {
-        $("shopSidebar")?.classList.add("active");
-        document.body.classList.add("sidebar-open");
-    });
-    $("closeSidebar")?.addEventListener("click", closeSidebar);
-    document.addEventListener("click", e => {
-        if (document.body.classList.contains("sidebar-open") &&
-            !e.target.closest("#shopSidebar") &&
-            !e.target.closest("#openSidebar")) {
-            closeSidebar();
-        }
-    });
 }
 
 function closeSidebar() {
@@ -913,25 +847,40 @@ function openProduct(id) {
     const container = $("productModalContent");
     if (!container) return;
 
+    const stock = Number(product.stock ?? 0);
+    const isOut = stock <= 0;
+
     container.innerHTML = `
         <div class="product-detail">
             <div class="product-detail-image">
                 ${product.image
                     ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}">`
                     : `<div class="product-placeholder">💻</div>`}
+                ${stockBadgeHTML(product)}
             </div>
             <div>
                 <span class="section-label">${getCategoryName(product.category)}</span>
                 <h2>${escapeHtml(product.name)}</h2>
                 <p class="product-detail-description">${escapeHtml(product.description)}</p>
                 <strong class="product-detail-price">${formatKz(product.price)}</strong>
+
+                <div class="product-stock-line">
+                    ${isOut
+                        ? `<span class="stock-badge stock-out">🚫 Esgotado</span> <strong>Sem unidades disponíveis</strong>`
+                        : stock <= 3
+                            ? `<span class="stock-badge stock-low">⚠️ Só ${stock}</span> <strong>Corre antes que acabe!</strong>`
+                            : `<span class="stock-badge stock-ok">✓ Disponível</span> <strong>${stock} unidades em stock</strong>`}
+                </div>
+
                 <div class="detail-specs">
                     <div class="detail-spec"><strong>Processador</strong><br>${escapeHtml(product.processor)}</div>
                     <div class="detail-spec"><strong>Memória</strong><br>${escapeHtml(product.ram)}</div>
                     <div class="detail-spec"><strong>Armazenamento</strong><br>${escapeHtml(product.storage)}</div>
                     <div class="detail-spec"><strong>Gráficos</strong><br>${escapeHtml(product.gpu)}</div>
                 </div>
-                <button class="btn btn-primary" data-modal-add="${product.id}">Adicionar ao carrinho →</button>
+                ${isOut
+                    ? `<button class="btn btn-secondary add-product-disabled" disabled>🚫 Esgotado</button>`
+                    : `<button class="btn btn-primary" data-modal-add="${product.id}">Adicionar ao carrinho →</button>`}
             </div>
         </div>
     `;
@@ -971,6 +920,18 @@ function addToCart(id, type = "product") {
     if (!product) return;
 
     const existing = cart.find(item => item.id === id);
+    const qtyInCart = existing ? existing.quantity : 0;
+
+    // 🛡️ Verificação de stock (só para produtos com stock definido)
+    if (typeof product.stock === "number") {
+        if (product.stock <= 0) {
+            return showToast("🚫 Esgotado", `${product.name} está sem stock de momento.`);
+        }
+        if (qtyInCart >= product.stock) {
+            return showToast("Stock máximo", `Só temos ${product.stock} unidade(s) de ${product.name}.`);
+        }
+    }
+
     if (existing) {
         existing.quantity++;
     } else {
@@ -1052,6 +1013,14 @@ function setupCartControls() {
 function changeQuantity(id, amount) {
     const item = cart.find(p => p.id === id);
     if (!item) return;
+
+    // 🛡️ Bloqueia "+" acima do stock disponível
+    if (amount > 0 && typeof item.stock === "number") {
+        if (item.quantity >= item.stock) {
+            return showToast("Stock máximo", `Só temos ${item.stock} unidade(s) de ${item.name}.`);
+        }
+    }
+
     item.quantity += amount;
     if (item.quantity <= 0) return removeFromCart(id);
     saveData(STORAGE.cart, cart);
@@ -1836,14 +1805,16 @@ function renderAccessories() {
 function accessoryCardTemplate(product) {
     const favorite = favorites.includes(product.id);
     const subLabel = ACCESSORY_CATEGORIES[product.category] || "";
+    const stock = Number(product.stock ?? 0);
+    const isOut = stock <= 0;
 
     return `
-        <article class="product-card reveal" data-product-id="${product.id}">
+        <article class="product-card reveal ${isOut ? "is-out-of-stock" : ""}" data-product-id="${product.id}">
             <div class="product-image">
                 ${product.image
                     ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}">`
                     : `<div class="product-placeholder">🎧</div>`}
-
+                ${stockBadgeHTML(product)}
                 <button class="favorite-button ${favorite ? "active" : ""}"
                         data-favorite="${product.id}" type="button"
                         aria-label="Favorito">${favorite ? "♥" : "♡"}</button>
@@ -1858,7 +1829,9 @@ function accessoryCardTemplate(product) {
                     <strong class="product-price">${formatKz(product.price)}</strong>
                     <div class="product-actions">
                         <button class="view-product" data-view-product="${product.id}">Detalhes</button>
-                        <button class="add-product" data-add-product="${product.id}">+ Carrinho</button>
+                        ${isOut
+                            ? `<button class="add-product add-product-disabled" disabled>Esgotado</button>`
+                            : `<button class="add-product" data-add-product="${product.id}">+ Carrinho</button>`}
                     </div>
                 </div>
             </div>
@@ -3077,28 +3050,44 @@ function renderAdminProducts() {
         return;
     }
 
-    list.innerHTML = filtered.map(p => `
-        <div class="admin-list-item">
-            <div class="admin-item-info">
-                <div class="admin-item-icon">
-                    ${p.image ? `<img src="${escapeHtml(p.image)}" alt="">` : `💻`}
+    list.innerHTML = filtered.map(p => {
+        const stock = Number(p.stock ?? 0);
+        const lowStock = stock > 0 && stock <= 3;
+        const outStock = stock <= 0;
+        const stockClass = outStock ? "stock-out" : lowStock ? "stock-low" : "stock-ok";
+        const stockLabel = outStock
+            ? "🚫 Esgotado"
+            : lowStock
+                ? `⚠️ Só ${stock}`
+                : `✓ ${stock}`;
+
+        return `
+            <div class="admin-list-item ${outStock ? "is-new" : ""}">
+                <div class="admin-item-info">
+                    <div class="admin-item-icon">
+                        ${p.image ? `<img src="${escapeHtml(p.image)}" alt="">` : `💻`}
+                    </div>
+                    <div>
+                        <h4>${highlightAdminMatch(p.name, q)}</h4>
+                        <p>
+                            ${formatKz(p.price)} • ${highlightAdminMatch(getCategoryName(p.category), q)}
+                            <span class="stock-badge ${stockClass}">${stockLabel}</span>
+                        </p>
+                    </div>
                 </div>
-                <div>
-                    <h4>${highlightAdminMatch(p.name, q)}</h4>
-                    <p>${formatKz(p.price)} • ${highlightAdminMatch(getCategoryName(p.category), q)}</p>
+                <div class="admin-item-actions">
+                    <button class="admin-edit" data-edit-product="${p.id}">Editar</button>
+                    <button class="admin-delete" data-delete-product="${p.id}">Eliminar</button>
                 </div>
             </div>
-            <div class="admin-item-actions">
-                <button class="admin-edit" data-edit-product="${p.id}">Editar</button>
-                <button class="admin-delete" data-delete-product="${p.id}">Eliminar</button>
-            </div>
-        </div>
-    `).join("") + adminResultsBadge(filtered.length, q, all.length);
+        `;
+    }).join("") + adminResultsBadge(filtered.length, q, all.length);
 }
 
 function setupProductAdmin() {
     $("openProductForm")?.addEventListener("click", () => {
         $("productForm")?.reset();
+        setVal("productStock", "10");
         setVal("productId", "");
         if ($("productImagePreview")) $("productImagePreview").innerHTML = "";
         openModal("productFormModal");
@@ -3119,6 +3108,7 @@ function setupProductAdmin() {
             name: form.get("productName"),
             category: form.get("productCategory"),
             price: Number(form.get("productPrice")),
+            stock: Math.max(0, Number(form.get("productStock")) || 0),
             description: form.get("productDescription"),
             processor: form.get("productProcessor") || "Não informado",
             ram: form.get("productRam") || "Não informado",
@@ -3158,6 +3148,7 @@ function editProduct(id) {
     setVal("productName", p.name);
     setVal("productCategory", p.category);
     setVal("productPrice", p.price);
+    setVal("productStock", p.stock ?? 10);
     setVal("productDescription", p.description);
     setVal("productProcessor", p.processor);
     setVal("productRam", p.ram);
@@ -4393,6 +4384,29 @@ function setupResetButton() {
 }
 
 /* ==========================================================
+   MIGRAÇÃO DE STOCK — adiciona stock a produtos antigos
+   (executa 1× por produto; preserva dados personalizados)
+========================================================== */
+function migrateProductStock() {
+    if (!Array.isArray(products)) return;
+
+    let migrated = 0;
+    products = products.map(p => {
+        if (typeof p.stock === "number" && p.stock >= 0) return p;
+
+        // Acessórios têm stock alto por defeito; PCs têm 5
+        const isAccessory = ["peripheral", "component", "extra"].includes(p.category);
+        migrated++;
+        return { ...p, stock: isAccessory ? 50 : 5 };
+    });
+
+    if (migrated > 0) {
+        console.log(`📦 Stock migrado em ${migrated} produtos`);
+        saveData(STORAGE.products, products);
+    }
+}
+
+/* ==========================================================
    31.5 — GARANTIR DEFAULTS (safety net)
 ========================================================== */
 function ensureDefaults() {
@@ -4955,6 +4969,7 @@ function initialize() {
     safeCall("setupGlobalSearch", setupGlobalSearch);
     safeCall("setupAdminSearch", setupAdminSearch);
     safeCall("setupMyOrders", setupMyOrders);
+    safeCall("migrateProductStock", migrateProductStock);
 
     safeCall("renderProducts", renderProducts);
     safeCall("renderCart", renderCart);
@@ -5042,6 +5057,8 @@ async function boot() {
 
         // 🛡️ Safety net: se algo estiver vazio, restaura defaults
         safeCall("ensureDefaults", ensureDefaults);
+        // 📦 Adiciona campo "stock" a produtos antigos (executa 1×)
+        safeCall("migrateProductStock", migrateProductStock);
 
         safeCall("renderProducts (sync)", renderProducts);
         safeCall("renderGames (sync)", renderGames);

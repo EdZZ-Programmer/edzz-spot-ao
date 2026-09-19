@@ -1300,7 +1300,13 @@
                 </div>
                 <div class="form-group"><label for="productPrice">Preço (Kz)</label><input id="productPrice" name="productPrice" type="number" min="0" required></div>
             </div>
-            <div class="form-group"><label for="productDescription">Descrição</label><textarea id="productDescription" name="productDescription" rows="4" required></textarea></div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="productStock">Stock (unidades)</label>
+                    <input id="productStock" name="productStock" type="number" min="0" value="10" required>
+                    <small>⚠️ Alerta no admin quando ficar abaixo de 3.</small>
+                </div>
+            </div>
             <div class="form-row">
                 <div class="form-group"><label for="productProcessor">Processador</label><input id="productProcessor" name="productProcessor"></div>
                 <div class="form-group"><label for="productRam">RAM</label><input id="productRam" name="productRam"></div>
