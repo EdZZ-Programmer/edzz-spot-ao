@@ -988,6 +988,8 @@
     </div>
 </div>
 
+
+
 <!-- ADMIN -->
 <div id="adminModal" class="modal admin-modal">
     <div class="modal-overlay"></div>
@@ -1054,6 +1056,7 @@
             <button class="admin-tab" data-admin-tab="clients">Clientes</button>
             <button class="admin-tab" data-admin-tab="logins">Logins</button>
             <button class="admin-tab" data-admin-tab="hero">Imagens</button>
+            <button class="admin-tab" data-admin-tab="payments">Pagamentos</button>
         </nav>
 
             <div id="adminProducts" class="admin-panel active">
@@ -1216,7 +1219,62 @@
                 <button id="resetOwnerPhoto" class="btn btn-secondary" type="button">Remover</button>
             </div>
         </div>
+                <!-- PAINEL: PAGAMENTOS -->
+        <div id="adminPayments" class="admin-panel">
+            <header class="admin-panel-header">
+                <div>
+                    <h3>Métodos de Pagamento</h3>
+                    <p>Configura os dados que o cliente vê no checkout.</p>
+                </div>
+                <button id="savePaymentSettingsBtn" class="btn btn-primary" type="button">💾 Guardar</button>
+            </header>
 
+            <h4 class="admin-subtitle">📱 Multicaixa Express</h4>
+            <div class="form-group">
+                <label for="settingsMulticaixaPhone">Número que recebe as notificações</label>
+                <input id="settingsMulticaixaPhone" type="tel" placeholder="946 665 266">
+                <small>O cliente vê este número no checkout.</small>
+            </div>
+
+            <h4 class="admin-subtitle">🏦 Contas Bancárias</h4>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="settingsBank1Name">Nome do Banco 1</label>
+                    <input id="settingsBank1Name" type="text" placeholder="BAI">
+                </div>
+                <div class="form-group">
+                    <label for="settingsBank1Iban">IBAN do Banco 1</label>
+                    <input id="settingsBank1Iban" type="text" placeholder="0040 0000 1234 5678 9012 3">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="settingsBank2Name">Nome do Banco 2</label>
+                    <input id="settingsBank2Name" type="text" placeholder="BFA">
+                </div>
+                <div class="form-group">
+                    <label for="settingsBank2Iban">IBAN do Banco 2</label>
+                    <input id="settingsBank2Iban" type="text" placeholder="0006 0000 9876 5432 1098 7">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="settingsTitular">Titular da conta</label>
+                <input id="settingsTitular" type="text" placeholder="EdZZ-Spot AO">
+            </div>
+
+            <h4 class="admin-subtitle">🏧 Referência</h4>
+            <div class="form-group">
+                <label for="settingsReferenceHours">Validade da referência (horas)</label>
+                <input id="settingsReferenceHours" type="number" min="1" max="72" value="24">
+                <small>Tempo que o cliente tem para pagar a referência.</small>
+            </div>
+
+            <div class="form-group">
+                <label for="settingsPaymentNote">Mensagem extra no checkout (opcional)</label>
+                <textarea id="settingsPaymentNote" rows="3" placeholder="Ex: Depois de pagar, envia o comprovativo por WhatsApp."></textarea>
+            </div>
+        </div>
     </div>
 </div>
 

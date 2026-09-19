@@ -39,6 +39,18 @@ const BUSINESS_HOURS = {
     6: { open: "09:00", close: "15:00" }
 };
 
+/* Configuração de pagamentos padrão (editável no admin) */
+const DEFAULT_PAYMENT_SETTINGS = {
+    multicaixaPhone: "946 665 266",
+    bank1Name: "BAI",
+    bank1Iban: "0040 0000 1234 5678 9012 3",
+    bank2Name: "BFA",
+    bank2Iban: "0006 0000 9876 5432 1098 7",
+    titular: "EdZZ-Spot AO",
+    referenceHours: 24,
+    paymentNote: ""
+};
+
 /* ==========================================================
    02 — DADOS PADRÃO
 ========================================================== */
@@ -311,7 +323,9 @@ async function syncFromServer() {
         if (typeof store.ownerPhoto === "string" && store.ownerPhoto) {
             localStorage.setItem(STORAGE.ownerPhoto, store.ownerPhoto);
         }
-
+        if (store.paymentSettings && typeof store.paymentSettings === "object") {
+            localStorage.setItem("edzzspot_paymentSettings", JSON.stringify(store.paymentSettings));
+        }
         console.log("✅ Dados sincronizados com o servidor");
     } catch (err) {
         console.warn("⚠️ Sem servidor — a usar dados locais:", err.message);
@@ -797,6 +811,8 @@ function setupProductClickHandlers() {
         }
         if (viewGame) openGame(Number(viewGame.dataset.viewGame));
         if (modalAddGame) {
+            addToCart(Number(modalAddGame.dataset.modalAddGame), "game");
+            closeModal("productModal");
             }
         if (modalAddSoftware) {
             addToCart(Number(modalAddSoftware.dataset.modalAddSoftware), "software");
@@ -1222,6 +1238,9 @@ function renderPaymentDynamicFields() {
 
     /* ---- Multicaixa Express ---- */
     if (method === "Multicaixa Express") {
+        const settings = loadPaymentSettings();
+        const phone = settings.multicaixaPhone;
+
         box.innerHTML = `
             <p class="payment-info-text">
                 📱 Vais receber uma notificação na app <strong>Multicaixa Express</strong>
@@ -1240,9 +1259,12 @@ function renderPaymentDynamicFields() {
 
     /* ---- Referência ---- */
     if (method === "Referência") {
+        const settings = loadPaymentSettings();
+
         if (!checkoutState.reference) {
             checkoutState.reference = generatePaymentReference();
-            const exp = new Date(Date.now() + 24 * 3600 * 1000);
+            const hours = Number(settings.referenceHours) || 24;
+            const exp = new Date(Date.now() + hours * 3600 * 1000);
             checkoutState.referenceExpires = exp;
         }
 
@@ -1287,30 +1309,29 @@ function renderPaymentDynamicFields() {
         return;
     }
 
-    /* ---- Transferência bancária ---- */
+        /* ---- Transferência bancária ---- */
     if (method === "Transferência bancária") {
+        const settings = loadPaymentSettings();
+
         box.innerHTML = `
             <p class="payment-info-text">
                 🏛️ Faz a transferência de <strong>${formatKzShort(total)}</strong> para uma das contas abaixo:
             </p>
             <div class="payment-iban-row">
-                <span>Banco BAI</span>
-                <strong>0040 0000 1234 5678 9012 3</strong>
-                <button type="button" class="payment-copy-btn" data-copy-iban="004000001234567890123">📋</button>
+                <span>${escapeHtml(settings.bank1Name)}</span>
+                <strong>${escapeHtml(settings.bank1Iban)}</strong>
+                <button type="button" class="payment-copy-btn" data-copy-iban="${escapeHtml(settings.bank1Iban.replace(/\s/g, ""))}">📋</button>
             </div>
             <div class="payment-iban-row">
-                <span>Banco BFA</span>
-                <strong>0006 0000 9876 5432 1098 7</strong>
-                <button type="button" class="payment-copy-btn" data-copy-iban="000600009876543210987">📋</button>
+                <span>${escapeHtml(settings.bank2Name)}</span>
+                <strong>${escapeHtml(settings.bank2Iban)}</strong>
+                <button type="button" class="payment-copy-btn" data-copy-iban="${escapeHtml(settings.bank2Iban.replace(/\s/g, ""))}">📋</button>
             </div>
             <div class="payment-iban-row">
                 <span>Titular</span>
-                <strong>EdZZ-Spot AO</strong>
+                <strong>${escapeHtml(settings.titular)}</strong>
             </div>
-            <div class="payment-meta">
-                <span>💡 Envia o comprovativo por WhatsApp</span>
-                <span>Confirmação em até 1h</span>
-            </div>
+            ${settings.paymentNote ? `<p class="payment-info-text" style="margin-top:12px;">💡 ${escapeHtml(settings.paymentNote)}</p>` : ""}
         `;
 
         box.querySelectorAll("[data-copy-iban]").forEach(btn => {
@@ -1329,6 +1350,49 @@ async function copyToClipboard(text, label = "Texto") {
     } catch {
         showToast(label, text);
     }
+}
+
+/* ==========================================================
+   CONFIGURAÇÃO DE PAGAMENTOS (editável no admin)
+========================================================== */
+function loadPaymentSettings() {
+    const saved = loadData("edzzspot_paymentSettings", null);
+    return { ...DEFAULT_PAYMENT_SETTINGS, ...(saved || {}) };
+}
+
+function savePaymentSettings(settings) {
+    saveData("edzzspot_paymentSettings", settings);
+    pushToServer("paymentSettings", settings);
+}
+
+function renderPaymentSettingsForm() {
+    const s = loadPaymentSettings();
+    setVal("settingsMulticaixaPhone", s.multicaixaPhone);
+    setVal("settingsBank1Name", s.bank1Name);
+    setVal("settingsBank1Iban", s.bank1Iban);
+    setVal("settingsBank2Name", s.bank2Name);
+    setVal("settingsBank2Iban", s.bank2Iban);
+    setVal("settingsTitular", s.titular);
+    setVal("settingsReferenceHours", s.referenceHours);
+    setVal("settingsPaymentNote", s.paymentNote || "");
+}
+
+function setupPaymentSettingsAdmin() {
+    $("savePaymentSettingsBtn")?.addEventListener("click", () => {
+        const settings = {
+            multicaixaPhone: $("settingsMulticaixaPhone")?.value.trim() || DEFAULT_PAYMENT_SETTINGS.multicaixaPhone,
+            bank1Name:       $("settingsBank1Name")?.value.trim() || DEFAULT_PAYMENT_SETTINGS.bank1Name,
+            bank1Iban:       $("settingsBank1Iban")?.value.trim() || DEFAULT_PAYMENT_SETTINGS.bank1Iban,
+            bank2Name:       $("settingsBank2Name")?.value.trim() || DEFAULT_PAYMENT_SETTINGS.bank2Name,
+            bank2Iban:       $("settingsBank2Iban")?.value.trim() || DEFAULT_PAYMENT_SETTINGS.bank2Iban,
+            titular:         $("settingsTitular")?.value.trim() || DEFAULT_PAYMENT_SETTINGS.titular,
+            referenceHours:  Number($("settingsReferenceHours")?.value) || 24,
+            paymentNote:     $("settingsPaymentNote")?.value.trim() || ""
+        };
+
+        savePaymentSettings(settings);
+        showToast("✅ Guardado", "Configuração de pagamentos atualizada.");
+    });
 }
 
 /* ---------- Setup ---------- */
@@ -2413,6 +2477,7 @@ function setupAdminTabs() {
             if (key === "games") loadAdminDataFromServer();
             if (key === "software") loadAdminDataFromServer();
             if (key === "carousel") loadAdminDataFromServer();
+            if (key === "payments") renderPaymentSettingsForm();
         });
     });
 }
@@ -3962,6 +4027,7 @@ function toggleFavorite(id) {
     renderProducts();
     renderGames();
     renderSoftware();
+    renderAccessories();
     if ($("favoritesModal")?.classList.contains("active")) {
         renderFavorites();
     }
@@ -4859,6 +4925,7 @@ function initialize() {
     safeCall("setupCarouselAdmin", setupCarouselAdmin);
     safeCall("setupHeroImageAdmin", setupHeroImageAdmin);
     safeCall("setupOwnerPhotoAdmin", setupOwnerPhotoAdmin);
+    safeCall("setupPaymentSettingsAdmin", setupPaymentSettingsAdmin);
     safeCall("setupFavorites", setupFavorites);
     safeCall("setupContact", setupContact);
     safeCall("setupToastClose", setupToastClose);
@@ -4982,3 +5049,4 @@ if (document.readyState === "loading") {
 window.addToCart = addToCart;
 window.closeModal = closeModal;
 window.openProduct = openProduct;
+
