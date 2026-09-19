@@ -2302,24 +2302,111 @@ body.light-mode .main-nav {
 @media (max-width: 1400px) {
     .header-container { gap: 12px; }
     .main-nav { gap: 12px; }
-    .nav-link { font-size: .82rem; }
+    .nav-link { font-size: .83rem; }
     .brand-main { font-size: 1.15rem; }
     .global-search-hint { display: none; }
 }
 
-/* ---------- 1300px ---------- */
-@media (max-width: 1300px) {
+/* ---------- 1240px ---------- */
+@media (max-width: 1240px) {
     .main-nav { gap: 10px; }
     .nav-link { font-size: .8rem; }
-    .user-button-text, .cart-label { display: none; }
-    .header-actions { gap: 6px; }
     .icon-button, .user-button, .cart-button { padding: 8px 9px; }
 }
 
-/* ---------- 1150px ---------- */
-@media (max-width: 1150px) {
+/* ---------- 1100px ---------- */
+@media (max-width: 1100px) {
     .main-nav { gap: 8px; }
     .nav-link { font-size: .78rem; }
+    .user-button-text, .cart-label { display: none; }
+    .header-actions { gap: 6px; }
+}
+
+/* ---------- 900px — HAMBURGER ---------- */
+@media (max-width: 900px) {
+    :root { --section-py: 80px; }
+
+    .main-nav {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+        padding: 10px 20px 16px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        box-shadow: 0 20px 40px rgba(0,0,0,.2);
+        max-height: calc(100vh - 72px);
+        overflow-y: auto;
+        z-index: 999;
+    }
+    .main-nav.active { display: flex; }
+
+    .main-nav > .nav-link {
+        padding: 14px 0;
+        border-bottom: 1px solid var(--border);
+        font-size: .9rem;
+    }
+
+    .nav-dropdown {
+        width: 100%;
+        border-bottom: 1px solid var(--border);
+    }
+    .nav-dropdown-toggle {
+        width: 100%;
+        justify-content: space-between;
+        padding: 14px 0;
+        font-size: .9rem;
+    }
+    .nav-dropdown-menu {
+        position: static;
+        transform: none;
+        opacity: 1;
+        pointer-events: auto;
+        min-width: 0;
+        box-shadow: none;
+        border: 0;
+        background: transparent;
+        padding: 0 0 10px 0;
+        display: none;
+        transition: none;
+    }
+    .nav-dropdown-menu::before { display: none; }
+    .nav-dropdown.open .nav-dropdown-menu { display: block; }
+    .nav-dropdown.open .nav-dropdown-menu--right { transform: none; }
+    .nav-dropdown-link {
+        padding: 10px 14px;
+        background: var(--primary-soft);
+        margin-bottom: 4px;
+    }
+
+    .mobile-menu-button { display: flex; }
+
+    /* Hero + grids */
+    .hero-container { grid-template-columns: 1fr; gap: 40px; }
+    .hero-content { text-align: center; }
+    .hero p { margin-inline: auto; }
+    .hero-actions, .hero-trust { justify-content: center; }
+    .about-container { grid-template-columns: 1fr; gap: 35px; }
+    .stats-grid, .admin-grid { grid-template-columns: repeat(2, 1fr); }
+
+    /* Carrossel */
+    .carousel-section { padding-top: 80px; }
+    .carousel-slide { grid-template-columns: 1fr; padding: 26px; gap: 20px; }
+    .carousel-slide-image { height: 170px; font-size: 4rem; order: -1; }
+    .carousel-slide-price { font-size: 1.4rem; }
+    .carousel-arrow { width: 36px; height: 36px; font-size: 1.4rem; }
+    .carousel-prev { left: 8px; }
+    .carousel-next { right: 8px; }
+
+    /* Shop */
+    .shop-layout { grid-template-columns: 1fr; }
+    .products-section #productsGrid.products-grid { grid-template-columns: repeat(2, 1fr); }
+
+    body.light-mode .main-nav { background: #ffffff; }
 }
 
 /* ---------- 1000px — HAMBURGER ---------- */
@@ -2504,6 +2591,51 @@ body.light-mode .main-nav {
     .toast { right: 16px; bottom: 90px; }
 }
 
+/* ==========================================================
+   🔧 FIX — Mostra "Entrar" e "Carrinho" em desktop
+   Força os textos dos botões a aparecer acima de 900px
+========================================================== */
+@media (min-width: 901px) {
+
+    /* Texto do botão Utilizador */
+    .header-actions .user-button-text {
+        display: inline !important;
+    }
+
+    /* Texto do botão Carrinho */
+    .header-actions .cart-label {
+        display: inline !important;
+    }
+
+    /* Garante padding correto com texto visível */
+    .icon-button,
+    .user-button,
+    .cart-button {
+        padding: 8px 12px !important;
+    }
+}
+
+/* Ajuste fino: 900-1100px ainda mostra tudo, mas compacto */
+@media (min-width: 901px) and (max-width: 1100px) {
+    .user-button-text,
+    .cart-label {
+        font-size: .8rem;
+    }
+    .icon-button,
+    .user-button,
+    .cart-button {
+        padding: 7px 10px !important;
+    }
+}
+
+/* Abaixo de 900px: só ícones (mobile) */
+@media (max-width: 900px) {
+    .user-button-text,
+    .cart-label {
+        display: none;
+    }
+}
+
 /* IMPRESSÃO */
 @media print {
     body > *:not(#invoiceModal) { display: none !important; }
@@ -2560,5 +2692,178 @@ body.light-mode .main-nav {
         font-size: .9rem;
     }
     .mobile-menu-button { display: flex; }
+    body.light-mode .main-nav { background: #ffffff; }
+}
+
+/* ==========================================================
+   🔧 FIX FINAL — Força layout correto em desktop
+   Garante que até 1000px o menu fica horizontal e o hamburger
+   está escondido. Abaixo de 1000px ativa o hamburger.
+========================================================== */
+
+/* ---------- DESKTOP (>= 1001px): nav horizontal SEMPRE visível ---------- */
+@media (min-width: 1001px) {
+
+    /* Nav horizontal, sem sombra, sem background */
+    .main-nav {
+        display: flex !important;
+        position: static !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 18px !important;
+        padding: 0 !important;
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    /* Links inline */
+    .main-nav > .nav-link {
+        padding: 0 !important;
+        border-bottom: 0 !important;
+        font-size: .86rem !important;
+    }
+
+    /* Dropdowns inline */
+    .nav-dropdown {
+        width: auto !important;
+        border-bottom: 0 !important;
+    }
+    .nav-dropdown-toggle {
+        width: auto !important;
+        padding: 0 !important;
+        font-size: .86rem !important;
+        justify-content: flex-start !important;
+    }
+
+    /* Menu do dropdown flutuante */
+    .nav-dropdown-menu {
+        position: absolute !important;
+        top: calc(100% + 14px) !important;
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) translateY(-6px) !important;
+        min-width: 250px !important;
+        padding: 8px !important;
+        border-radius: 14px !important;
+        background: var(--surface) !important;
+        border: 1px solid var(--border) !important;
+        box-shadow: 0 20px 50px rgba(0,0,0,.18), 0 0 0 1px rgba(0,184,212,.06) !important;
+        opacity: 0;
+        pointer-events: none;
+        display: block !important;
+    }
+    .nav-dropdown-menu--right {
+        left: auto !important;
+        right: 0 !important;
+        transform: translateX(0) translateY(-6px) !important;
+    }
+    .nav-dropdown.open .nav-dropdown-menu {
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        transform: translateX(-50%) translateY(0) !important;
+    }
+    .nav-dropdown.open .nav-dropdown-menu--right {
+        transform: translateX(0) translateY(0) !important;
+    }
+
+    /* Seta do dropdown */
+    .nav-dropdown-menu::before {
+        display: block !important;
+        top: -6px !important;
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) rotate(45deg) !important;
+        width: 12px !important;
+        height: 12px !important;
+        background: var(--surface) !important;
+        border-left: 1px solid var(--border) !important;
+        border-top: 1px solid var(--border) !important;
+    }
+    .nav-dropdown-menu--right::before {
+        left: auto !important;
+        right: 22px !important;
+        transform: rotate(45deg) !important;
+    }
+
+    /* Links dentro do dropdown voltam a ser elegantes */
+    .nav-dropdown-link {
+        padding: 10px 12px !important;
+        background: transparent !important;
+        margin-bottom: 0 !important;
+    }
+    .nav-dropdown-link:hover {
+        background: var(--primary-soft) !important;
+    }
+
+    /* 🚫 ESCONDE O HAMBURGER */
+    .mobile-menu-button {
+        display: none !important;
+    }
+}
+
+/* ---------- MOBILE (<= 1000px): hamburger + menu vertical ---------- */
+@media (max-width: 1000px) {
+
+    .main-nav {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+        padding: 10px 20px 16px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        box-shadow: 0 20px 40px rgba(0,0,0,.2);
+        max-height: calc(100vh - 72px);
+        overflow-y: auto;
+        z-index: 999;
+    }
+    .main-nav.active { display: flex; }
+
+    .main-nav > .nav-link {
+        padding: 14px 0;
+        border-bottom: 1px solid var(--border);
+        font-size: .9rem;
+    }
+
+    .nav-dropdown {
+        width: 100%;
+        border-bottom: 1px solid var(--border);
+    }
+    .nav-dropdown-toggle {
+        width: 100%;
+        justify-content: space-between;
+        padding: 14px 0;
+        font-size: .9rem;
+    }
+
+    .nav-dropdown-menu {
+        position: static !important;
+        transform: none !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        min-width: 0 !important;
+        box-shadow: none !important;
+        border: 0 !important;
+        background: transparent !important;
+        padding: 0 0 10px 0 !important;
+        display: none;
+        border-radius: 0 !important;
+    }
+    .nav-dropdown-menu::before { display: none !important; }
+    .nav-dropdown.open .nav-dropdown-menu { display: block; }
+    .nav-dropdown-link {
+        padding: 10px 14px !important;
+        background: var(--primary-soft) !important;
+        margin-bottom: 4px !important;
+    }
+
+    .mobile-menu-button { display: flex !important; }
     body.light-mode .main-nav { background: #ffffff; }
 }

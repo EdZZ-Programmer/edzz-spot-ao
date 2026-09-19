@@ -4470,7 +4470,6 @@ function initialize() {
     safeCall("applyDefaultTheme", applyDefaultTheme);
     safeCall("setupNavDropdowns", setupNavDropdowns);
     safeCall("setupGlobalSearch", setupGlobalSearch);
-    safeCall("setupNavDropdowns", setupNavDropdowns);
     safeCall("setupAdminSearch", setupAdminSearch);
     safeCall("setupMyOrders", setupMyOrders);
 
