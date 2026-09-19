@@ -1102,12 +1102,6 @@ body.light-mode .toast { background: #ffffff; }
     .global-search-hint { display: none; }
 }
 
-/* Em ecrãs médios: esconde o texto do carrinho e do utilizador também */
-@media (max-width: 1200px) {
-    .header-actions .cart-label,
-    .header-actions .user-button-text { display: none; }
-}
-
 /* Em ecrãs mais pequenos: esconde o botão de pesquisa por completo
    (o atalho Ctrl+K continua a funcionar) */
 @media (max-width: 900px) {
@@ -1343,21 +1337,6 @@ body.light-mode .toast { background: #ffffff; }
     .global-search-item {
         padding: 10px 8px;
     }
-}
-
-/* ==========================================================
-   HEADER RESPONSIVO — evitar corte
-========================================================== */
-@media (max-width: 1400px) {
-    .header-container { gap: 12px; }
-    .main-nav { gap: 12px; }
-    .nav-link { font-size: .82rem; }
-    .brand-main { font-size: 1.15rem; }
-}
-
-@media (max-width: 1280px) {
-    .header-container { gap: 10px; }
-    .mobile-menu-button { display: flex; }
 }
 
 /* ==========================================================
@@ -2191,18 +2170,6 @@ body.light-mode .nav-dropdown-menu::before {
     .header-actions { gap: 6px; }
 }
 
-/* 1150-1280px: esconde textos, só ícones */
-@media (max-width: 1280px) {
-    .main-nav { gap: 12px; }
-    .nav-link { font-size: .82rem; }
-    .user-button-text,
-    .cart-label { display: none; }
-    .icon-button,
-    .user-button,
-    .cart-button { padding: 8px 9px; }
-    .brand-main { font-size: 1.15rem; }
-}
-
 /* 1000-1150px: mais compacto */
 @media (max-width: 1150px) {
     .main-nav { gap: 10px; }
@@ -2652,47 +2619,6 @@ body.light-mode .main-nav {
     .invoice-disclaimer { padding: 8px 18px !important; font-size: .7rem !important; }
     * { animation: none !important; transition: none !important; }
     @page { size: A4; margin: 10mm; }
-}
-
-/* ==========================================================
-   HEADER — compacto em ecrãs médios
-========================================================== */
-@media (max-width: 1400px) {
-    .header-container { gap: 12px; }
-    .main-nav { gap: 12px; }
-    .nav-link { font-size: .82rem; }
-    .brand-main { font-size: 1.15rem; }
-}
-@media (max-width: 1300px) {
-    .main-nav { gap: 10px; }
-    .nav-link { font-size: .8rem; }
-    .user-button-text, .cart-label { display: none; }
-    .header-actions { gap: 6px; }
-}
-@media (max-width: 1150px) {
-    .main-nav {
-        display: none;
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        flex-direction: column;
-        gap: 0;
-        padding: 12px 20px;
-        background: var(--surface);
-        border-bottom: 1px solid var(--border);
-        box-shadow: 0 20px 40px rgba(0,0,0,.15);
-        max-height: calc(100vh - 76px);
-        overflow-y: auto;
-    }
-    .main-nav.active { display: flex; }
-    .main-nav > .nav-link {
-        padding: 14px 0;
-        border-bottom: 1px solid var(--border);
-        font-size: .9rem;
-    }
-    .mobile-menu-button { display: flex; }
-    body.light-mode .main-nav { background: #ffffff; }
 }
 
 /* ==========================================================
