@@ -28,6 +28,16 @@
     </div>
 </div>
 
+<!-- BANNER PROMO -->
+<div id="promoBanner" class="promo-banner">
+    <div class="container promo-banner-inner">
+        <span class="promo-banner-text">
+            🚚 <strong>Envio Grátis</strong> em Luanda acima de 100.000 Kz — Suporte: <strong>+244 946 665 266</strong>
+        </span>
+        <button id="closePromoBanner" class="promo-banner-close" type="button" aria-label="Fechar">×</button>
+    </div>
+</div>
+
 <!-- 02 — HEADER -->
 <header id="header" class="header">
     <div class="container header-container">
@@ -39,17 +49,67 @@
 
         <nav id="mainNav" class="main-nav" aria-label="Navegação principal">
             <a href="#inicio" class="nav-link active">Início</a>
-            <a href="#computadores" class="nav-link">Computadores</a>
+
+            <div class="nav-dropdown">
+                <button class="nav-link nav-dropdown-toggle" type="button">
+                    Produtos <span class="nav-chevron">▾</span>
+                </button>
+                <div class="nav-dropdown-menu">
+                    <a href="#computadores" class="nav-dropdown-link">
+                        <span class="nav-dropdown-icon">💻</span>
+                        <div>
+                            <strong>Computadores</strong>
+                            <small>Gaming, Notebooks e Office</small>
+                        </div>
+                    </a>
+                    <a href="#acessorios" class="nav-dropdown-link">
+                        <span class="nav-dropdown-icon">🎧</span>
+                        <div>
+                            <strong>Acessórios</strong>
+                            <small>Periféricos, componentes e extras</small>
+                        </div>
+                    </a>
+                    <a href="#jogos" class="nav-dropdown-link">
+                        <span class="nav-dropdown-icon">🎮</span>
+                        <div>
+                            <strong>Jogos</strong>
+                            <small>Os melhores títulos para PC</small>
+                        </div>
+                    </a>
+                    <a href="#programas" class="nav-dropdown-link">
+                        <span class="nav-dropdown-icon">📊</span>
+                        <div>
+                            <strong>Programas</strong>
+                            <small>Software e ferramentas</small>
+                        </div>
+                    </a>
+                </div>
+            </div>
+
             <a href="#servicos" class="nav-link">Serviços</a>
-            <a href="#jogos" class="nav-link">Jogos</a>
-            <a href="#programas" class="nav-link">Programas</a>
-            <a href="#acessorios" class="nav-link">Acessórios</a>
-            <a href="#avaliacoes" class="nav-link">Avaliações</a>
-            <a href="#sobre" class="nav-link">Sobre</a>
-            <a href="#contacto" class="nav-link">Contacto</a>
+
+            <div class="nav-dropdown">
+                <button class="nav-link nav-dropdown-toggle" type="button">
+                    Mais <span class="nav-chevron">▾</span>
+                </button>
+                <div class="nav-dropdown-menu nav-dropdown-menu--small">
+                    <a href="#avaliacoes" class="nav-dropdown-link">
+                        <span class="nav-dropdown-icon">⭐</span>
+                        <div><strong>Avaliações</strong></div>
+                    </a>
+                    <a href="#sobre" class="nav-dropdown-link">
+                        <span class="nav-dropdown-icon">ℹ️</span>
+                        <div><strong>Sobre nós</strong></div>
+                    </a>
+                    <a href="#contacto" class="nav-dropdown-link">
+                        <span class="nav-dropdown-icon">📞</span>
+                        <div><strong>Contacto</strong></div>
+                    </a>
+                </div>
+            </div>
         </nav>
 
-            <div class="header-actions">
+        <div class="header-actions">
             <button id="openGlobalSearch" class="icon-button global-search-btn" type="button" aria-label="Pesquisar" title="Pesquisar">
                 <span>🔎</span>
                 <span class="global-search-hint">Pesquisar</span>
@@ -81,6 +141,40 @@
 
     </div>
 </header>
+
+<!-- FEATURES BAR -->
+<section class="features-bar">
+    <div class="container features-bar-grid">
+        <div class="features-bar-item">
+            <span class="features-bar-icon">🚚</span>
+            <div class="features-bar-text">
+                <strong>Envio Rápido</strong>
+                <small>Luanda: 1-2 dias úteis</small>
+            </div>
+        </div>
+        <div class="features-bar-item">
+            <span class="features-bar-icon">✅</span>
+            <div class="features-bar-text">
+                <strong>Produtos Verificados</strong>
+                <small>Qualidade garantida</small>
+            </div>
+        </div>
+        <div class="features-bar-item">
+            <span class="features-bar-icon">💬</span>
+            <div class="features-bar-text">
+                <strong>Suporte 24/7</strong>
+                <small>Sempre por ti</small>
+            </div>
+        </div>
+        <div class="features-bar-item">
+            <span class="features-bar-icon">🔒</span>
+            <div class="features-bar-text">
+                <strong>Pagamento Seguro</strong>
+                <small>Multicaixa ou Referência</small>
+            </div>
+        </div>
+    </div>
+</section>
 
 <!-- 03 — CARROSSEL -->
 <section class="carousel-section">

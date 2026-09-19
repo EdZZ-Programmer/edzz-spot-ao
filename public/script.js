@@ -4352,12 +4352,95 @@ function setupMyOrders() {
     });
 }
 
+/* ==========================================================
+   31.7 — BANNER PROMO + NAV DROPDOWN + LIGHT DEFAULT
+========================================================== */
+
+/* ---------- Banner promo dismissível ---------- */
+function setupPromoBanner() {
+    const banner = $("promoBanner");
+    const closeBtn = $("closePromoBanner");
+    if (!banner || !closeBtn) return;
+
+    const wasClosed = localStorage.getItem("edzzspot_banner_closed") === "1";
+    if (wasClosed) {
+        banner.classList.add("hidden");
+        document.body.classList.add("banner-closed");
+    }
+
+    closeBtn.addEventListener("click", () => {
+        banner.classList.add("hidden");
+        document.body.classList.add("banner-closed");
+        localStorage.setItem("edzzspot_banner_closed", "1");
+    });
+}
+
+/* ---------- Nav dropdown (Produtos / Mais) ---------- */
+function setupNavDropdowns() {
+    const dropdowns = document.querySelectorAll(".nav-dropdown");
+    if (!dropdowns.length) return;
+
+    dropdowns.forEach(dd => {
+        const toggle = dd.querySelector(".nav-dropdown-toggle");
+        if (!toggle) return;
+
+        toggle.addEventListener("click", e => {
+            e.stopPropagation();
+            const wasOpen = dd.classList.contains("open");
+
+            // Fecha os outros
+            dropdowns.forEach(d => d.classList.remove("open"));
+
+            // Abre/fecha este
+            if (!wasOpen) dd.classList.add("open");
+        });
+
+        // Fecha ao clicar num link do menu
+        dd.querySelectorAll(".nav-dropdown-link").forEach(link => {
+            link.addEventListener("click", () => {
+                dd.classList.remove("open");
+                // Se for mobile, fecha o menu principal
+                $("mainNav")?.classList.remove("active");
+            });
+        });
+    });
+
+    // Fecha ao clicar fora
+    document.addEventListener("click", e => {
+        if (!e.target.closest(".nav-dropdown")) {
+            dropdowns.forEach(d => d.classList.remove("open"));
+        }
+    });
+
+    // Fecha com Escape
+    document.addEventListener("keydown", e => {
+        if (e.key === "Escape") {
+            dropdowns.forEach(d => d.classList.remove("open"));
+        }
+    });
+}
+
+/* ---------- Light mode por defeito ---------- */
+function applyDefaultTheme() {
+    const saved = localStorage.getItem(STORAGE.theme);
+
+    // Se nunca foi escolhido → aplica light
+    if (!saved) {
+        document.body.classList.add("light-mode");
+        localStorage.setItem(STORAGE.theme, "light");
+
+        const toggle = $("themeToggle");
+        if (toggle) toggle.textContent = "☀️";
+    }
+}
 
 /* ==========================================================
    32 — INICIALIZAÇÃO
 ========================================================== */
 function initialize() {
     console.log("🚀 initialize() — início");
+
+    safeCall("applyDefaultTheme", applyDefaultTheme);
 
     $("refreshInvoices")?.addEventListener("click", loadInvoices);
     $("refreshLogins")?.addEventListener("click", loadLogins);
@@ -4389,6 +4472,9 @@ function initialize() {
     safeCall("setupToastClose", setupToastClose);
     safeCall("setupClientsAdmin", setupClientsAdmin);
     safeCall("setupResetButton", setupResetButton);
+    safeCall("applyDefaultTheme", applyDefaultTheme);
+    safeCall("setupPromoBanner", setupPromoBanner);
+    safeCall("setupNavDropdowns", setupNavDropdowns);
     safeCall("setupGlobalSearch", setupGlobalSearch);
     safeCall("setupAdminSearch", setupAdminSearch);
     safeCall("setupMyOrders", setupMyOrders);
