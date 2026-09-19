@@ -1404,6 +1404,7 @@ function generateOrderNumber() {
 }
 
 /* ---------- Setup ---------- */
+/* ---------- Setup ---------- */
 function setupCheckout() {
     /* Botão do carrinho abre o modal */
     $("checkoutButton")?.addEventListener("click", () => {
@@ -1412,7 +1413,6 @@ function setupCheckout() {
         closeCart();
         openModal("checkoutModal");
 
-        // Reset para o passo 1
         checkoutState = {
             step: 1,
             zone: "",
@@ -1461,75 +1461,86 @@ function setupCheckout() {
         }
     });
 
-    /* Submit final */
+    /* ✅ Submit final (aqui estava o bug: $$ em vez de $) */
     $("checkoutForm")?.addEventListener("submit", async e => {
         e.preventDefault();
 
-        if (!cart.length) return showToast("Carrinho vazio", "Adiciona pelo menos um produto.");
-        if (checkoutState.step !== 2) return goToCheckoutStep(2);
-        if (!validateCheckoutStep1()) return goToCheckoutStep(1);
-
-        const method = checkoutState.paymentMethod;
-        if (!method) {
-            return showToast("Atenção", "Escolhe um método de pagamento.");
-        }
-
-        const subtotal = getCartSubtotal();
-        const shipping = calculateShipping(checkoutState.zone, subtotal);
-        const total = subtotal + shipping;
-
-        const form = new FormData(e.target);
-
-        const order = {
-            id: generateOrderNumber(),
-            date: new Date().toISOString(),
-            customer: {
-                name: form.get("customerName")?.trim(),
-                phone: form.get("customerPhone")?.trim(),
-                email: form.get("customerEmail")?.trim(),
-                address: form.get("customerAddress")?.trim(),
-                zone: checkoutState.zone,
-                zoneLabel: SHIPPING_ZONES[checkoutState.zone]?.label || ""
-            },
-            paymentMethod: method,
-            paymentReference: method === "Referência" ? checkoutState.reference : "",
-            paymentReferenceExpires: method === "Referência" && checkoutState.referenceExpires
-                ? new Date(checkoutState.referenceExpires).toISOString()
-                : "",
-            items: [...cart],
-            subtotal,
-            shipping,
-            total,
-            status: "Pendente"
-        };
-
-        // Loading state
         const payBtn = $("payButton");
-        const originalText = payBtn?.innerHTML;
+        const originalHTML = payBtn?.innerHTML;
+        const originalDisabled = payBtn?.disabled;
+
         if (payBtn) {
             payBtn.disabled = true;
-            payBtn.innerHTML = "⏳ A processar...";
+            payBtn.innerHTML = '⏳ A processar...';
         }
 
-        orders.push(order);
-        saveData(STORAGE.orders, orders);
+        try {
+            if (!cart.length) return showToast("Carrinho vazio", "Adiciona pelo menos um produto.");
+            if (checkoutState.step !== 2) return goToCheckoutStep(2);
+            if (!validateCheckoutStep1()) return goToCheckoutStep(1);
 
-        // Enviar para o servidor
-        fetch("/api/orders", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(order)
-        }).catch(err => console.warn("Erro ao enviar pedido:", err));
+            const method = checkoutState.paymentMethod;
+            if (!method) {
+                return showToast("Atenção", "Escolhe um método de pagamento.");
+            }
 
-        // Pequeno delay para parecer real
-        await new Promise(r => setTimeout(r, 1800));
+            const subtotal = getCartSubtotal();
+            const shipping = calculateShipping(checkoutState.zone, subtotal);
+            const total = subtotal + shipping;
 
-        if (payBtn) {
-            payBtn.disabled = false;
-            payBtn.innerHTML = originalText;
+            const form = new FormData(e.target);
+
+            const order = {
+                id: generateOrderNumber(),
+                date: new Date().toISOString(),
+                customer: {
+                    name: form.get("customerName")?.trim(),
+                    phone: form.get("customerPhone")?.trim(),
+                    email: form.get("customerEmail")?.trim(),
+                    address: form.get("customerAddress")?.trim(),
+                    zone: checkoutState.zone,
+                    zoneLabel: SHIPPING_ZONES[checkoutState.zone]?.label || ""
+                },
+                paymentMethod: method,
+                paymentReference: method === "Referência" ? checkoutState.reference : "",
+                paymentReferenceExpires: method === "Referência" && checkoutState.referenceExpires
+                    ? new Date(checkoutState.referenceExpires).toISOString()
+                    : "",
+                items: [...cart],
+                subtotal,
+                shipping,
+                total,
+                status: "Pendente"
+            };
+
+            orders.push(order);
+            saveData(STORAGE.orders, orders);
+
+            fetch("/api/orders", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(order)
+            }).catch(err => console.warn("Erro ao enviar pedido:", err));
+
+            await new Promise(r => setTimeout(r, 1800));
+
+            if (payBtn) {
+                payBtn.disabled = originalDisabled ?? false;
+                payBtn.innerHTML = originalHTML ?? 'Pagar <span id="payButtonTotal">0 Kz</span>';
+            }
+
+            showPurchaseAnimation(order);
+
+        } catch (err) {
+            console.error("❌ Erro no checkout:", err);
+            const mensagem = err instanceof Error ? err.message : String(err);
+            showToast("Erro", "Não foi possível finalizar: " + mensagem);
+
+            if (payBtn) {
+                payBtn.disabled = originalDisabled ?? false;
+                payBtn.innerHTML = originalHTML ?? 'Pagar <span id="payButtonTotal">0 Kz</span>';
+            }
         }
-
-        showPurchaseAnimation(order);
     });
 }
 
