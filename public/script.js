@@ -1395,6 +1395,14 @@ function setupPaymentSettingsAdmin() {
     });
 }
 
+/* Gera número de pedido sequencial: EDZ-2026-0001 */
+function generateOrderNumber() {
+    const year = new Date().getFullYear();
+    const count = Array.isArray(orders) ? orders.length : 0;
+    const seq = String(count + 1).padStart(4, "0");
+    return `EDZ-${year}-${seq}`;
+}
+
 /* ---------- Setup ---------- */
 function setupCheckout() {
     /* Botão do carrinho abre o modal */
