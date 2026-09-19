@@ -400,6 +400,19 @@ main { padding-top: 76px; }
 .checkout-summary p { color: var(--muted); font-size: .78rem; }
 
 .invoice-modal-content { width: min(820px, 100%); background: #fff; color: #101827; }
+
+/* 🎯 Fatura aparece SEMPRE por cima de qualquer outro modal */
+#invoiceModal {
+    z-index: 9500 !important;
+}
+#invoiceModal.active {
+    display: grid !important;
+    z-index: 9500 !important;
+}
+#invoiceModal .modal-content.invoice-modal-content {
+    position: relative;
+    z-index: 2;
+}
 .invoice-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; padding: 28px; border-bottom: 1px solid #e5e7eb; }
 .invoice-logo small { display: block; color: #6b7280; font-size: .74rem; margin-top: 2px; }
 .invoice-title-area { padding: 20px 28px; text-align: right; }
@@ -1518,6 +1531,243 @@ body.light-mode .admin-search-box input::-webkit-search-cancel-button {
         min-width: 0;
         width: 100%;
     }
+}
+
+/* ==========================================================
+   MEUS PEDIDOS (cliente)
+========================================================== */
+.my-orders-modal { z-index: 3200; }
+
+.my-orders-content {
+    width: min(820px, 100%);
+    padding: 0;
+}
+
+.my-orders-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+.my-orders-filters {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    overflow-x: auto;
+}
+.my-orders-filter {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    background: transparent;
+    color: var(--muted);
+    font-size: .75rem;
+    font-weight: 700;
+    transition: var(--tr);
+    white-space: nowrap;
+}
+.my-orders-filter:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+.my-orders-filter.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #001018;
+}
+
+.my-orders-list {
+    padding: 18px 22px;
+    display: grid;
+    gap: 14px;
+    max-height: 65vh;
+    overflow-y: auto;
+}
+
+/* Card de pedido */
+.my-order-card {
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: rgba(255,255,255,.025);
+    transition: var(--tr);
+}
+.my-order-card:hover {
+    border-color: var(--primary-border);
+    transform: translateY(-2px);
+}
+
+.my-order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+.my-order-header h4 {
+    font-family: Orbitron, sans-serif;
+    font-size: .92rem;
+    margin-bottom: 4px;
+}
+.my-order-header small {
+    color: var(--muted);
+    font-size: .72rem;
+}
+
+.my-order-total {
+    color: var(--primary);
+    font-family: Orbitron, sans-serif;
+    font-size: 1.05rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+/* Timeline do estado */
+.my-order-timeline {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin: 14px 0;
+    padding: 12px 10px;
+    background: rgba(255,255,255,.02);
+    border-radius: 10px;
+    overflow-x: auto;
+}
+.my-order-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    font-size: .7rem;
+    font-weight: 700;
+    color: var(--muted);
+    white-space: nowrap;
+}
+.my-order-step-dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: .65rem;
+    background: rgba(255,255,255,.05);
+    border: 1.5px solid var(--border);
+    transition: var(--tr);
+    flex-shrink: 0;
+}
+.my-order-step.done .my-order-step-dot {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #001018;
+}
+.my-order-step.done {
+    color: var(--text);
+}
+.my-order-step.active .my-order-step-dot {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #001018;
+    box-shadow: 0 0 0 4px rgba(0,217,255,.2);
+    animation: stepPulse 1.8s ease-in-out infinite;
+}
+@keyframes stepPulse {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(0,217,255,.2); }
+    50%      { box-shadow: 0 0 0 7px rgba(0,217,255,.05); }
+}
+.my-order-step.cancelled .my-order-step-dot {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: #fff;
+}
+.my-order-step-line {
+    width: 18px;
+    height: 2px;
+    background: var(--border);
+    flex-shrink: 0;
+}
+.my-order-step-line.done {
+    background: var(--primary);
+}
+
+/* Badge do estado atual */
+.my-order-status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 99px;
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+/* Itens do pedido */
+.my-order-items {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border);
+    display: grid;
+    gap: 6px;
+}
+.my-order-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    font-size: .82rem;
+    color: var(--muted);
+}
+.my-order-item strong {
+    color: var(--text);
+    font-weight: 600;
+}
+.my-order-item-price {
+    color: var(--primary);
+    font-family: Orbitron, sans-serif;
+    font-weight: 800;
+    font-size: .8rem;
+}
+
+.my-order-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+
+/* Estado vazio */
+.my-orders-empty {
+    padding: 50px 20px;
+    text-align: center;
+    color: var(--muted);
+}
+.my-orders-empty-icon {
+    font-size: 3.5rem;
+    margin-bottom: 12px;
+    opacity: .6;
+}
+.my-orders-empty h3 {
+    color: var(--text);
+    margin-bottom: 6px;
+    font-size: 1.05rem;
+}
+.my-orders-empty p {
+    font-size: .85rem;
+    margin-bottom: 16px;
+}
+
+@media (max-width: 700px) {
+    .my-orders-toolbar { padding: 12px 14px; }
+    .my-orders-list { padding: 14px; }
+    .my-order-card { padding: 14px; }
+    .my-order-timeline { padding: 10px 6px; }
+    .my-order-step { font-size: .65rem; }
+    .my-order-step-dot { width: 20px; height: 20px; }
 }
 
 /* IMPRESSÃO */

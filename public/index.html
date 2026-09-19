@@ -757,6 +757,36 @@
     </div>
 </div>
 
+
+<!-- MEUS PEDIDOS (cliente) -->
+<div id="myOrdersModal" class="modal my-orders-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content my-orders-content">
+        <header class="modal-header">
+            <div>
+                <span class="section-label">AS TUAS COMPRAS</span>
+                <h2>📦 Meus Pedidos</h2>
+            </div>
+            <button id="closeMyOrders" class="modal-close">×</button>
+        </header>
+
+        <div class="my-orders-toolbar">
+            <div class="my-orders-filters">
+                <button class="my-orders-filter active" data-order-filter="all">Todos</button>
+                <button class="my-orders-filter" data-order-filter="Pendente">🟡 Pendentes</button>
+                <button class="my-orders-filter" data-order-filter="Confirmado">🔵 Confirmados</button>
+                <button class="my-orders-filter" data-order-filter="Enviado">🟣 Enviados</button>
+                <button class="my-orders-filter" data-order-filter="Entregue">🟢 Entregues</button>
+                <button class="my-orders-filter" data-order-filter="Cancelado">🔴 Cancelados</button>
+            </div>
+            <button id="refreshMyOrders" class="btn btn-secondary" type="button">↻ Atualizar</button>
+        </div>
+
+        <div id="myOrdersList" class="my-orders-list"></div>
+    </div>
+</div>
+
+
 <!-- PERFIL -->
 <div id="profileModal" class="modal">
     <div class="modal-overlay"></div>
@@ -772,6 +802,7 @@
             <div class="profile-row"><span>👤 Tipo de conta</span><strong id="profileRole">Cliente</strong></div>
         </div>
         <div class="profile-actions">
+            <button id="openMyOrders" class="btn btn-primary">📦 Os meus pedidos</button>
             <button id="openAdminFromProfile" class="btn btn-primary" style="display:none;">Abrir painel admin</button>
             <button id="logoutButton" class="btn btn-secondary">Sair da conta</button>
         </div>

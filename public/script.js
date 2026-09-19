@@ -780,6 +780,7 @@ function closeSidebar() {
 
 function setupProductClickHandlers() {
     document.addEventListener("click", e => {
+        const modalAddSoftware = e.target.closest("[data-modal-add-software]");
         const addBtn      = e.target.closest("[data-add-product]");
         const viewBtn     = e.target.closest("[data-view-product]");
         const favBtn      = e.target.closest("[data-favorite]");
@@ -796,13 +797,10 @@ function setupProductClickHandlers() {
         }
         if (viewGame) openGame(Number(viewGame.dataset.viewGame));
         if (modalAddGame) {
-            addToCart(Number(modalAddGame.dataset.modalAddGame), "game");
-            closeModal("productModal");
-                const modalAddSoftware = e.target.closest("[data-modal-add-software]");
+            }
         if (modalAddSoftware) {
             addToCart(Number(modalAddSoftware.dataset.modalAddSoftware), "software");
             closeModal("productModal");
-        }
         }
     });
 }
@@ -1135,6 +1133,58 @@ function showPurchaseAnimation(order) {
         openModal("invoiceModal");
         $("checkoutForm")?.reset();
     }, 2400);
+}
+
+/* ==========================================================
+   MOSTRAR FATURA (admin + cliente)
+   Abre o modal do comprovativo, força z-index alto e move
+   para o fim do body para ficar sempre por cima.
+========================================================== */
+function showInvoiceDetails(invoice) {
+    if (!invoice) return;
+
+    // Preencher todos os campos
+    setText("invoiceOrderNumber", invoice.id || "—");
+    setText("invoiceDate", invoice.date
+        ? new Date(invoice.date).toLocaleString("pt-AO")
+        : "—");
+    setText("invoiceCustomer", invoice.customer?.name || "—");
+    setText("invoicePhone", invoice.customer?.phone || "—");
+    setText("invoiceSubtotal", formatKz(invoice.subtotal || 0));
+    setText("invoiceShipping", formatKz(invoice.shipping || 0));
+    setText("invoiceTotal", formatKz(invoice.total || 0));
+
+    // Preencher items
+    if ($("invoiceItems")) {
+        $("invoiceItems").innerHTML = (invoice.items || []).map(item => `
+            <div class="invoice-item">
+                <span>${escapeHtml(item.name)}</span>
+                <span>${item.quantity}x</span>
+                <strong>${formatKz((item.price || 0) * (item.quantity || 1))}</strong>
+            </div>
+        `).join("");
+    }
+
+    // 🛡️ Abrir o modal com z-index máximo
+    const modal = $("invoiceModal");
+    if (!modal) {
+        console.error("❌ #invoiceModal não existe no HTML");
+        return;
+    }
+
+    // Mover para o fim do body (garante que fica por cima de tudo)
+    if (modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+    }
+
+    // Forçar z-index máximo
+    modal.style.zIndex = "9500";
+
+    // Abrir
+    modal.classList.add("active");
+    document.body.classList.add("no-scroll");
+
+    console.log("🧾 Fatura aberta:", invoice.id);
 }
 
 function fillInvoice(order) {
@@ -4096,6 +4146,214 @@ function setupGlobalSearch() {
 }
 
 /* ==========================================================
+   31.9 — MEUS PEDIDOS (cliente)
+========================================================== */
+let myOrdersCache = [];
+let myOrdersFilter = "all";
+
+const ORDER_STATUS_STEPS = [
+    { key: "Pendente",   label: "Recebido",   icon: "🟡" },
+    { key: "Confirmado", label: "Confirmado", icon: "🔵" },
+    { key: "Enviado",    label: "Enviado",    icon: "🟣" },
+    { key: "Entregue",   label: "Entregue",   icon: "🟢" }
+];
+
+const ORDER_STATUS_COLORS = {
+    "Pendente":   "status-pending",
+    "Confirmado": "status-confirmed",
+    "Enviado":    "status-shipped",
+    "Entregue":   "status-delivered",
+    "Cancelado":  "status-cancelled"
+};
+
+function getOrderStepIndex(status) {
+    const idx = ORDER_STATUS_STEPS.findIndex(s => s.key === status);
+    return idx === -1 ? 0 : idx;
+}
+
+function orderTimelineHTML(status) {
+    if (status === "Cancelado") {
+        return `
+            <div class="my-order-timeline">
+                <div class="my-order-step cancelled">
+                    <span class="my-order-step-dot">✕</span>
+                    <span>Pedido cancelado</span>
+                </div>
+            </div>
+        `;
+    }
+
+    const currentIdx = getOrderStepIndex(status);
+
+    return `
+        <div class="my-order-timeline">
+            ${ORDER_STATUS_STEPS.map((step, i) => {
+                const done = i < currentIdx;
+                const active = i === currentIdx;
+                const cls = done ? "done" : active ? "active done" : "";
+                const lineCls = i < currentIdx ? "done" : "";
+
+                return `
+                    ${i > 0 ? `<span class="my-order-step-line ${lineCls}"></span>` : ""}
+                    <div class="my-order-step ${cls}">
+                        <span class="my-order-step-dot">${done || active ? "✓" : i + 1}</span>
+                        <span>${step.label}</span>
+                    </div>
+                `;
+            }).join("")}
+        </div>
+    `;
+}
+
+async function loadMyOrders() {
+    const list = $("myOrdersList");
+    if (!list) return;
+
+    list.innerHTML = `
+        <div class="my-orders-empty">
+            <div class="my-orders-empty-icon">⏳</div>
+            <p>A carregar os teus pedidos...</p>
+        </div>
+    `;
+
+    try {
+        const res = await fetch("/api/my-invoices", {
+            headers: { "Authorization": `Bearer ${authToken}` }
+        });
+
+        if (!res.ok) throw new Error("Não foi possível carregar.");
+        myOrdersCache = await res.json();
+        renderMyOrders();
+    } catch (err) {
+        list.innerHTML = `
+            <div class="my-orders-empty">
+                <div class="my-orders-empty-icon">⚠️</div>
+                <h3>Erro a carregar</h3>
+                <p>${escapeHtml(err.message)}</p>
+            </div>
+        `;
+    }
+}
+
+function renderMyOrders() {
+    const list = $("myOrdersList");
+    if (!list) return;
+
+    const all = Array.isArray(myOrdersCache) ? myOrdersCache : [];
+    const filtered = myOrdersFilter === "all"
+        ? all
+        : all.filter(o => (o.status || "Pendente") === myOrdersFilter);
+
+    if (!all.length) {
+        list.innerHTML = `
+            <div class="my-orders-empty">
+                <div class="my-orders-empty-icon">📦</div>
+                <h3>Ainda não tens pedidos</h3>
+                <p>Quando fizeres uma compra, ela aparecerá aqui com o estado em tempo real.</p>
+                <button id="goShoppingFromOrders" class="btn btn-primary">🛍️ Explorar produtos</button>
+            </div>
+        `;
+        $("goShoppingFromOrders")?.addEventListener("click", () => {
+            closeModal("myOrdersModal");
+            document.querySelector("#computadores")?.scrollIntoView({ behavior: "smooth" });
+        });
+        return;
+    }
+
+    if (!filtered.length) {
+        list.innerHTML = `
+            <div class="my-orders-empty">
+                <div class="my-orders-empty-icon">🔍</div>
+                <h3>Nenhum pedido neste estado</h3>
+                <p>Tenta outro filtro.</p>
+            </div>
+        `;
+        return;
+    }
+
+    list.innerHTML = filtered.map(o => {
+        const status = o.status || "Pendente";
+        const statusClass = ORDER_STATUS_COLORS[status] || "status-pending";
+
+        const itemsHTML = (o.items || []).map(item => `
+            <div class="my-order-item">
+                <span>
+                    ${escapeHtml(item.name)}
+                    <strong> × ${item.quantity}</strong>
+                </span>
+                <span class="my-order-item-price">${formatKz(item.price * item.quantity)}</span>
+            </div>
+        `).join("");
+
+        return `
+            <div class="my-order-card">
+                <div class="my-order-header">
+                    <div>
+                        <h4>${escapeHtml(o.id)}</h4>
+                        <small>📅 ${new Date(o.date).toLocaleString("pt-AO")}</small>
+                    </div>
+                    <div style="text-align:right;">
+                        <span class="my-order-status-badge ${statusClass}">${status}</span>
+                        <div class="my-order-total" style="margin-top:6px;">${formatKz(o.total)}</div>
+                    </div>
+                </div>
+
+                ${orderTimelineHTML(status)}
+
+                <div class="my-order-items">${itemsHTML}</div>
+
+                <div class="my-order-actions">
+                    <button class="btn btn-secondary" data-view-my-invoice="${escapeHtml(o.id)}">
+                        🧾 Ver comprovativo
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join("");
+
+    // Click handler para ver o comprovativo
+    list.querySelectorAll("[data-view-my-invoice]").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const inv = myOrdersCache.find(i => i.id === btn.dataset.viewMyInvoice);
+            if (inv) showInvoiceDetails(inv);
+        });
+    });
+}
+
+function setupMyOrders() {
+    // Botão no perfil
+    $("openMyOrders")?.addEventListener("click", () => {
+        closeModal("profileModal");
+        openModal("myOrdersModal");
+        myOrdersFilter = "all";
+        document.querySelectorAll(".my-orders-filter").forEach(f =>
+            f.classList.toggle("active", f.dataset.orderFilter === "all")
+        );
+        loadMyOrders();
+    });
+
+    // Botão de fechar
+    $("closeMyOrders")?.addEventListener("click", () => closeModal("myOrdersModal"));
+
+    // Botão de refresh
+    $("refreshMyOrders")?.addEventListener("click", () => {
+        loadMyOrders();
+        showToast("Pedidos", "Lista atualizada.");
+    });
+
+    // Filtros de estado
+    document.querySelectorAll(".my-orders-filter").forEach(btn => {
+        btn.addEventListener("click", () => {
+            document.querySelectorAll(".my-orders-filter").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            myOrdersFilter = btn.dataset.orderFilter;
+            renderMyOrders();
+        });
+    });
+}
+
+
+/* ==========================================================
    32 — INICIALIZAÇÃO
 ========================================================== */
 function initialize() {
@@ -4133,6 +4391,7 @@ function initialize() {
     safeCall("setupResetButton", setupResetButton);
     safeCall("setupGlobalSearch", setupGlobalSearch);
     safeCall("setupAdminSearch", setupAdminSearch);
+    safeCall("setupMyOrders", setupMyOrders);
 
     safeCall("renderProducts", renderProducts);
     safeCall("renderCart", renderCart);
