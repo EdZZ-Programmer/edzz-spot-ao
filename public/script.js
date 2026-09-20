@@ -4,6 +4,9 @@
 
 "use strict";
 
+// 🛡️ Marca o HTML como "JS ready" — ativa as animações .reveal
+document.documentElement.classList.add("js-ready");
+
 /* ==========================================================
    01 — CONFIGURAÇÃO
 ========================================================== */
@@ -12,7 +15,6 @@ const STORAGE = {
     products:     "edzzspot_products",
     orders:       "edzzspot_orders",
     appointments: "edzzspot_appointments",
-    currentUser:  "edzzspot_currentUser",
     favorites:    "edzzspot_favorites",
     services:     "edzzspot_services",
     games:        "edzzspot_games",
@@ -27,7 +29,7 @@ const STORAGE = {
 // ⚠️ Aumenta isto SEMPRE que quiseres forçar reset dos dados em todos os browsers
 const DATA_VERSION = 3;
 
-const IMAGE_CONFIG = { maxWidth: 900, quality: 0.75 };
+const IMAGE_CONFIG = { maxWidth: 600, quality: 0.7 };
 
 const BUSINESS_HOURS = {
     0: { open: "12:30", close: "15:00" },
@@ -1061,7 +1063,6 @@ function renderCart() {
     setText("cartSubtotal", formatKz(subtotal));
     setText("cartShipping", formatKz(shipping));
     setText("cartTotal", formatKz(total));
-    setText("checkoutTotal", formatKz(total));
 }
 
 function setupCartControls() {
@@ -5137,6 +5138,10 @@ async function boot() {
     try { checkDataVersion(); }
     catch (e) { console.error("Erro checkDataVersion:", e); }
 
+    // 1.5) Migrar produtos antigos (adiciona stock se faltar)
+    try { migrateProductStock(); }
+    catch (e) { console.error("Erro migrateProductStock:", e); }
+
     // 2) Intro
     try { startIntro(); }
     catch (err) {
@@ -5171,6 +5176,8 @@ async function boot() {
         safeCall("renderServices (sync)", renderServices);
         safeCall("renderAccessories (sync)", renderAccessories);
         safeCall("renderCarousel (sync)", renderCarousel);
+        safeCall("loadHeroImage (sync)", loadHeroImage);
+        safeCall("loadOwnerPhoto (sync)", loadOwnerPhoto);
     } catch (err) {
         console.warn("⚠️ Sync falhou ou timeout — a usar dados locais:", err.message);
     }

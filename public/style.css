@@ -518,6 +518,12 @@ main { padding-top: 76px; }
 /* ==========================================================
    ANIMAÇÕES — SCROLL REVEAL
 ========================================================== */
+/* 🛡️ Segurança: se o JS não carregar, mostra tudo */
+html:not(.js-ready) .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+}
+
 .reveal {
     opacity: 0;
     transform: translateY(40px);
