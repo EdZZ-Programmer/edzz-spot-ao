@@ -668,14 +668,30 @@ function buildDynamicFilterOptions() {
     }
 }
 
+/* Retorna o HTML do badge de stock conforme a quantidade */
+function stockBadgeHTML(product) {
+    const stock = Number(product.stock ?? 0);
+    if (stock <= 0) {
+        return `<span class="stock-badge stock-out">🚫 Esgotado</span>`;
+    }
+    if (stock <= 3) {
+        return `<span class="stock-badge stock-low">⚠️ Só ${stock} em stock</span>`;
+    }
+    return `<span class="stock-badge stock-ok">✓ ${stock} em stock</span>`;
+}
+
 function productCardTemplate(product) {
     const favorite = favorites.includes(product.id);
+    const stock = Number(product.stock ?? 0);
+    const isOut = stock <= 0;
+
     return `
-        <article class="product-card reveal" data-product-id="${product.id}">
+        <article class="product-card reveal ${isOut ? "is-out-of-stock" : ""}" data-product-id="${product.id}">
             <div class="product-image">
                 ${product.image
                     ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}">`
                     : `<div class="product-placeholder">💻</div>`}
+                ${stockBadgeHTML(product)}
                 <button class="favorite-button ${favorite ? "active" : ""}"
                         data-favorite="${product.id}" type="button"
                         aria-label="Favorito">${favorite ? "♥" : "♡"}</button>
@@ -694,7 +710,9 @@ function productCardTemplate(product) {
                     <strong class="product-price">${formatKz(product.price)}</strong>
                     <div class="product-actions">
                         <button class="view-product" data-view-product="${product.id}">Detalhes</button>
-                        <button class="add-product" data-add-product="${product.id}">+ Carrinho</button>
+                        ${isOut
+                            ? `<button class="add-product add-product-disabled" disabled>Esgotado</button>`
+                            : `<button class="add-product" data-add-product="${product.id}">+ Carrinho</button>`}
                     </div>
                 </div>
             </div>
@@ -971,6 +989,18 @@ function addToCart(id, type = "product") {
     if (!product) return;
 
     const existing = cart.find(item => item.id === id);
+    const qtyInCart = existing ? existing.quantity : 0;
+
+    // 🛡️ Verificação de stock (só para produtos com stock definido)
+    if (typeof product.stock === "number") {
+        if (product.stock <= 0) {
+            return showToast("🚫 Esgotado", `${product.name} está sem stock de momento.`);
+        }
+        if (qtyInCart >= product.stock) {
+            return showToast("Stock máximo", `Só temos ${product.stock} unidade(s) de ${product.name}.`);
+        }
+    }
+
     if (existing) {
         existing.quantity++;
     } else {
@@ -1052,6 +1082,14 @@ function setupCartControls() {
 function changeQuantity(id, amount) {
     const item = cart.find(p => p.id === id);
     if (!item) return;
+
+    // 🛡️ Bloqueia "+" acima do stock disponível
+    if (amount > 0 && typeof item.stock === "number") {
+        if (item.quantity >= item.stock) {
+            return showToast("Stock máximo", `Só temos ${item.stock} unidade(s) de ${item.name}.`);
+        }
+    }
+
     item.quantity += amount;
     if (item.quantity <= 0) return removeFromCart(id);
     saveData(STORAGE.cart, cart);
@@ -1836,14 +1874,16 @@ function renderAccessories() {
 function accessoryCardTemplate(product) {
     const favorite = favorites.includes(product.id);
     const subLabel = ACCESSORY_CATEGORIES[product.category] || "";
+    const stock = Number(product.stock ?? 0);
+    const isOut = stock <= 0;
 
     return `
-        <article class="product-card reveal" data-product-id="${product.id}">
+        <article class="product-card reveal ${isOut ? "is-out-of-stock" : ""}" data-product-id="${product.id}">
             <div class="product-image">
                 ${product.image
                     ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}">`
                     : `<div class="product-placeholder">🎧</div>`}
-
+                ${stockBadgeHTML(product)}
                 <button class="favorite-button ${favorite ? "active" : ""}"
                         data-favorite="${product.id}" type="button"
                         aria-label="Favorito">${favorite ? "♥" : "♡"}</button>
@@ -1858,7 +1898,9 @@ function accessoryCardTemplate(product) {
                     <strong class="product-price">${formatKz(product.price)}</strong>
                     <div class="product-actions">
                         <button class="view-product" data-view-product="${product.id}">Detalhes</button>
-                        <button class="add-product" data-add-product="${product.id}">+ Carrinho</button>
+                        ${isOut
+                            ? `<button class="add-product add-product-disabled" disabled>Esgotado</button>`
+                            : `<button class="add-product" data-add-product="${product.id}">+ Carrinho</button>`}
                     </div>
                 </div>
             </div>
@@ -3100,6 +3142,7 @@ function setupProductAdmin() {
     $("openProductForm")?.addEventListener("click", () => {
         $("productForm")?.reset();
         setVal("productId", "");
+        setVal("productStock", "10");
         if ($("productImagePreview")) $("productImagePreview").innerHTML = "";
         openModal("productFormModal");
     });
@@ -3119,6 +3162,7 @@ function setupProductAdmin() {
             name: form.get("productName"),
             category: form.get("productCategory"),
             price: Number(form.get("productPrice")),
+            stock: Math.max(0, Number(form.get("productStock")) || 0),
             description: form.get("productDescription"),
             processor: form.get("productProcessor") || "Não informado",
             ram: form.get("productRam") || "Não informado",
@@ -3158,6 +3202,7 @@ function editProduct(id) {
     setVal("productName", p.name);
     setVal("productCategory", p.category);
     setVal("productPrice", p.price);
+    setVal("productStock", p.stock ?? 10);
     setVal("productDescription", p.description);
     setVal("productProcessor", p.processor);
     setVal("productRam", p.ram);
@@ -3815,10 +3860,15 @@ function renderAdminOrdersFromServer(ordersFromServer) {
         });
     });
 
-    list.querySelectorAll("[data-order-status]").forEach(select => {
+        list.querySelectorAll("[data-order-status]").forEach(select => {
         select.addEventListener("change", async e => {
             const id = select.dataset.orderStatus;
             const newStatus = e.target.value;
+
+            // 🛡️ Captura o estado anterior (antes de enviar)
+            const orderRef = all.find(o => o.id === id);
+            const previousStatus = orderRef ? (orderRef.status || "Pendente") : "";
+
             select.disabled = true;
             try {
                 const res = await fetch(`/api/orders/${encodeURIComponent(id)}/status`, {
@@ -3830,6 +3880,12 @@ function renderAdminOrdersFromServer(ordersFromServer) {
                     body: JSON.stringify({ status: newStatus })
                 });
                 if (!res.ok) throw new Error("Falha ao alterar.");
+
+                // 📦 Desconta stock só na PRIMEIRA transição para "Entregue"
+                if (newStatus === "Entregue" && previousStatus !== "Entregue") {
+                    deductStockFromOrder(id);
+                }
+
                 showToast("📦 Estado atualizado", `${id} → ${newStatus}`);
                 await loadAdminDataFromServer();
             } catch (err) {
@@ -3838,6 +3894,54 @@ function renderAdminOrdersFromServer(ordersFromServer) {
             }
         });
     });
+}
+
+/* ==========================================================
+   📦 DESCONTO AUTOMÁTICO DE STOCK
+   Chamado quando um pedido muda para "Entregue".
+========================================================== */
+function deductStockFromOrder(orderId) {
+    try {
+        // 1) Encontra o pedido nos dados em memória
+        const order = orders.find(o => o.id === orderId);
+        if (!order || !Array.isArray(order.items)) {
+            console.warn("⚠️ Pedido não encontrado:", orderId);
+            return 0;
+        }
+
+        // 2) Desconta stock de cada item do tipo "product"
+        let alterou = 0;
+        const detalhes = [];
+
+        order.items.forEach(item => {
+            if (item.type !== "product") return;
+
+            const product = products.find(p => p.id === item.id);
+            if (!product) return;
+            if (typeof product.stock !== "number") return;
+
+            const quantidade = Number(item.quantity) || 1;
+            const stockAntes = product.stock;
+            product.stock = Math.max(0, product.stock - quantidade);
+
+            alterou++;
+            detalhes.push(`${product.name}: ${stockAntes} → ${product.stock}`);
+        });
+
+        // 3) Guarda e re-renderiza
+        if (alterou > 0) {
+            saveData(STORAGE.products, products);
+            renderProducts();
+            renderAccessories();
+            renderAdminProducts();
+            console.log(`📦 Stock descontado (${alterou}):`, detalhes);
+            showToast("📦 Stock descontado", `${alterou} produto(s) atualizado(s).`);
+        }
+        return alterou;
+    } catch (err) {
+        console.error("❌ Erro a descontar stock:", err);
+        return 0;
+    }
 }
 
 function getStatusClass(status) {
@@ -4390,6 +4494,24 @@ function setupResetButton() {
 
         showToast("✅ Restaurado", "Dados originais restaurados.");
     });
+}
+
+/* ==========================================================
+   MIGRAÇÃO DE STOCK — adiciona stock a produtos antigos
+========================================================== */
+function migrateProductStock() {
+    if (!Array.isArray(products)) return;
+    let migrated = 0;
+    products = products.map(p => {
+        if (typeof p.stock === "number" && p.stock >= 0) return p;
+        const isAccessory = ["peripheral", "component", "extra"].includes(p.category);
+        migrated++;
+        return { ...p, stock: isAccessory ? 50 : 5 };
+    });
+    if (migrated > 0) {
+        console.log(`📦 Stock migrado em ${migrated} produtos`);
+        saveData(STORAGE.products, products);
+    }
 }
 
 /* ==========================================================
