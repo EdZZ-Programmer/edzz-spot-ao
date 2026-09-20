@@ -505,23 +505,39 @@ app.get("/api/comments", (req, res) => {
 
 app.post("/api/comments", (req, res) => {
     try {
-        const { userId, name, rating, text } = req.body;
+        const { userId, name, rating, text, productId, productType } = req.body;
         if (!name || !text) return res.status(400).json({ error: "Faltam dados." });
 
         const comments = readComments();
+
+        // 🆕 Se for review de produto, verifica se o user já avaliou este produto
+        if (productId != null && userId != null) {
+            const jaAvaliou = comments.some(c =>
+                c.productId === productId &&
+                c.userId === userId
+            );
+            if (jaAvaliou) {
+                return res.status(409).json({ error: "Já avaliaste este produto." });
+            }
+        }
+
         const newComment = {
             id: Date.now() + Math.floor(Math.random() * 1000),
             userId: userId || null,
             name: String(name).slice(0, 80),
             rating: Number(rating) || 5,
             text: String(text).slice(0, 500),
-            date: new Date().toISOString()
+            date: new Date().toISOString(),
+            // 🆕 Campos novos (null para comentários gerais do site)
+            productId: productId ?? null,
+            productType: productType ?? null
         };
 
         comments.push(newComment);
         saveComments(comments);
 
-        console.log(`💬 Comentário: ${newComment.name} — ${newComment.rating}★`);
+        const tipo = newComment.productId ? `[${newComment.productType}#${newComment.productId}]` : "[site]";
+        console.log(`💬 Comentário ${tipo}: ${newComment.name} — ${newComment.rating}★`);
         res.status(201).json(newComment);
     } catch (err) {
         res.status(500).json({ error: "Erro." });
