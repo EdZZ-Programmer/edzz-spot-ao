@@ -1,21 +1,17 @@
+require("dotenv").config(); // ⚠️ OBRIGATÓRIO SER A PRIMEIRA LINHA
 const { Resend } = require('resend');
-const resend = new Resend(process.env.EMAIL_PASS); // A tua chave API do Resend
-const nodemailer = require("nodemailer");
-require("dotenv").config();
-
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const os = require("os");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const cors = require("cors");
-const { registerSchema, loginSchema, commentSchema, orderSchema, orderStatusSchema } = require("./schemas");
 const sanitizeHtml = require("sanitize-html");
 const { createClient } = require('@supabase/supabase-js');
+const { registerSchema, loginSchema, commentSchema, orderSchema, orderStatusSchema } = require("./schemas");
 
 // 🛡️ Ligação Segura ao Supabase
 const supabase = createClient(
@@ -23,13 +19,16 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// ✉️ Ligação à API do Resend (Agora com a chave correta)
+const resend = new Resend(process.env.EMAIL_PASS);
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || "development";
 const IS_PROD = NODE_ENV === "production";
 
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
-const DEV_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"];
+const DEV_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000", "https://edzz-spot-ao.pages.dev"];
 
 /* ----------------------------------------------------------
    CONFIGURAÇÃO E JWT
@@ -48,52 +47,6 @@ function getPersistentSecret() {
 }
 const JWT_SECRET = getPersistentSecret();
 
-app.post("/api/auth/forgot-password", async (req, res) => {
-    try {
-        const { email } = req.body;
-        console.log("📩 Pedido de recuperação para:", email);
-        
-        if (!email) return res.status(400).json({ error: "Email obrigatório." });
-
-        const users = await getUsers();
-        const user = users.find(u => u.email === email.toLowerCase().trim());
-
-        if (!user) {
-            console.log("⚠️ Email não encontrado na BD:", email);
-            return res.json({ ok: true, message: "Se o email existir, receberás um link." });
-        }
-
-        const token = crypto.randomBytes(32).toString("hex");
-        const tokens = readResetTokens();
-        tokens[token] = { userId: user.id, expires: Date.now() + 15 * 60 * 1000 };
-        saveResetTokens(tokens);
-
-        const resetLink = `https://edzz-spot-ao.pages.dev/?resetToken=${token}`;
-        
-        console.log("📤 A enviar email via Resend API para:", user.email);
-        
-        const { data, error } = await resend.emails.send({
-            from: '"EdZZ-Spot AO" <onboarding@resend.dev>', // Obrigatório no plano grátis
-            to: user.email,
-            subject: "Recuperação de Palavra-passe",
-            html: `<p>Olá ${user.name},</p><p><a href="${resetLink}">Clica aqui para redefinir a password</a>. Expira em 15 min.</p>`
-        });
-
-        if (error) {
-            console.error("❌ Erro do Resend:", error);
-            return res.status(500).json({ error: "Erro ao enviar o email." });
-        }
-
-        console.log("✅ Email enviado com sucesso. ID:", data.id);
-        res.json({ ok: true, message: "Se o email existir, receberás um link." });
-        
-    } catch (err) { 
-        console.error("❌ ERRO AO ENVIAR EMAIL:", err.message);
-        res.status(500).json({ error: "Erro ao enviar o email." }); 
-    }
-});
-
-// Base de dados temporária para tokens de recuperação (Ficheiro local)
 const RESET_TOKENS_FILE = path.join(DATA_DIR, "reset_tokens.json");
 if (!fs.existsSync(RESET_TOKENS_FILE)) fs.writeFileSync(RESET_TOKENS_FILE, "{}");
 function readResetTokens() {
@@ -104,70 +57,45 @@ function saveResetTokens(tokens) {
 }
 
 /* ----------------------------------------------------------
-   HELPERS (TRADUTORES: O Frontend usa camelCase, a BD usa snake_case)
+   HELPERS (Supabase)
 ---------------------------------------------------------- */
-// Utilizadores
 async function getUsers() {
     const { data, error } = await supabase.from('users').select('*');
     if (error) throw error;
-    // Traduzir snake_case da BD para camelCase que o Node usa
     return (data || []).map(u => ({
-        ...u,
-        passwordHash: u.password_hash,
-        securityQuestion: u.security_question,
-        securityAnswerHash: u.security_answer_hash,
-        createdAt: u.created_at
+        ...u, passwordHash: u.password_hash, securityQuestion: u.security_question,
+        securityAnswerHash: u.security_answer_hash, createdAt: u.created_at
     }));
 }
 async function saveUser(user) {
     const { error } = await supabase.from('users').upsert([{
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        password_hash: user.passwordHash,
-        role: user.role,
-        security_question: user.securityQuestion,
-        security_answer_hash: user.securityAnswerHash,
+        id: user.id, name: user.name, email: user.email, phone: user.phone,
+        password_hash: user.passwordHash, role: user.role,
+        security_question: user.securityQuestion, security_answer_hash: user.securityAnswerHash,
         created_at: user.createdAt
     }]);
     if (error) throw error;
 }
-
-// Pedidos
 async function getOrders() {
     const { data, error } = await supabase.from('orders').select('*').order('date', { ascending: false });
     if (error) throw error;
     return (data || []).map(o => ({
         ...o,
-        customer: { 
-            name: o.customer_name, email: o.customer_email, phone: o.customer_phone, 
-            address: o.customer_address, zone: o.customer_zone, zoneLabel: o.customer_zone 
-        },
+        customer: { name: o.customer_name, email: o.customer_email, phone: o.customer_phone, address: o.customer_address, zone: o.customer_zone, zoneLabel: o.customer_zone },
         paymentMethod: o.payment_method
     }));
 }
 async function saveOrder(order) {
     const { error } = await supabase.from('orders').upsert([{
-        id: order.id,
-        customer_name: order.customer.name,
-        customer_email: order.customer.email,
-        customer_phone: order.customer.phone,
-        customer_address: order.customer.address,
-        customer_zone: order.customer.zone || null,
-        items: order.items,
-        subtotal: order.subtotal,
-        shipping: order.shipping,
-        total: order.total,
-        payment_method: order.paymentMethod,
-        status: order.status,
-        seen: order.seen || false,
-        date: order.date
+        id: order.id, customer_name: order.customer.name, customer_email: order.customer.email,
+        customer_phone: order.customer.phone, customer_address: order.customer.address,
+        customer_zone: order.customer.zone || null, items: order.items,
+        subtotal: order.subtotal, shipping: order.shipping, total: order.total,
+        payment_method: order.paymentMethod, status: order.status,
+        seen: order.seen || false, date: order.date
     }]);
     if (error) throw error;
 }
-
-// Logins
 async function getLogins() {
     const { data, error } = await supabase.from('logins').select('*').order('date', { ascending: false }).limit(500);
     if (error) throw error;
@@ -181,14 +109,10 @@ async function registerLogin({ email, name, role, ip, userAgent, success }) {
         }]);
     } catch (err) { console.error("Erro registar login:", err.message); }
 }
-
-// Comentários
 async function getComments() {
     const { data, error } = await supabase.from('comments').select('*').order('date', { ascending: true });
     if (error) throw error;
-    return (data || []).map(c => ({
-        ...c, userId: c.user_id, productId: c.product_id, productType: c.product_type
-    }));
+    return (data || []).map(c => ({ ...c, userId: c.user_id, productId: c.product_id, productType: c.product_type }));
 }
 async function saveComment(comment) {
     const { error } = await supabase.from('comments').insert([{
@@ -201,8 +125,6 @@ async function deleteComment(id) {
     const { error } = await supabase.from('comments').delete().eq('id', id);
     if (error) throw error;
 }
-
-// Store (Produtos, Jogos, Configurações)
 async function getStore() {
     const { data, error } = await supabase.from('store').select('key, value');
     if (error) { if (error.code === '42P01') return {}; throw error; }
@@ -214,8 +136,6 @@ async function saveStoreKey(key, value) {
     const { error } = await supabase.from('store').upsert([{ key, value }]);
     if (error) throw error;
 }
-
-// Verificar Admin
 function verifyAdmin(req) {
     try {
         const auth = req.headers.authorization || "";
@@ -223,12 +143,12 @@ function verifyAdmin(req) {
         if (!token) return null;
         const decoded = jwt.verify(token, JWT_SECRET);
         if (decoded.role !== "admin") return null;
-        return decoded; 
+        return decoded;
     } catch { return null; }
 }
 
 /* ----------------------------------------------------------
-   MIDDLEWARES DE SEGURANÇA
+   MIDDLEWARES
 ---------------------------------------------------------- */
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false, crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.disable("x-powered-by");
@@ -260,7 +180,6 @@ app.post("/api/auth/register", async (req, res) => {
 
         const users = await getUsers();
         const emailLower = email.toLowerCase().trim();
-
         if (users.find(u => u.email === emailLower)) return res.status(409).json({ error: "Este email já está registado." });
 
         const passwordHash = await bcrypt.hash(password, 10);
@@ -301,8 +220,8 @@ app.post("/api/auth/login", async (req, res) => {
         registerLogin({ email: user.email, name: user.name, role: user.role, ip: req.ip, userAgent: req.headers["user-agent"], success: true });
         const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: "30d" });
         res.json({ message: "Login realizado!", token, user: { id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role, hasSecurityQuestion: !!user.securityQuestion } });
-        } catch (err) { 
-        console.error("❌ ERRO NO LOGIN:", err); // Isto vai mostrar o erro real no terminal!
+    } catch (err) { 
+        console.error("❌ ERRO NO LOGIN:", err);
         res.status(500).json({ error: "Erro no servidor." }); 
     }
 });
@@ -320,19 +239,21 @@ app.get("/api/auth/me", async (req, res) => {
 });
 
 /* ==========================================================
-   RECUPERAÇÃO DE SENHA
+   RECUPERAÇÃO DE SENHA (COM RESEND API)
 ========================================================== */
 app.post("/api/auth/forgot-password", async (req, res) => {
     try {
+        // 🛡️ Garante que req.body existe
+        if (!req.body || !req.body.email) {
+            return res.status(400).json({ error: "Email obrigatório." });
+        }
+        
         const { email } = req.body;
         console.log("📩 Pedido de recuperação para:", email);
-        
-        if (!email) return res.status(400).json({ error: "Email obrigatório." });
 
         const users = await getUsers();
         const user = users.find(u => u.email === email.toLowerCase().trim());
 
-        // Se o utilizador não existir, devolvemos sucesso falso (segurança)
         if (!user) {
             console.log("⚠️ Email não encontrado na BD:", email);
             return res.json({ ok: true, message: "Se o email existir, receberás um link." });
@@ -347,21 +268,46 @@ app.post("/api/auth/forgot-password", async (req, res) => {
         
         console.log("📤 A enviar email via Resend para:", user.email);
         
-        await transporter.sendMail({
+        const { data, error } = await resend.emails.send({
             from: '"EdZZ-Spot AO" <onboarding@resend.dev>',
             to: user.email,
             subject: "Recuperação de Palavra-passe",
             html: `<p>Olá ${user.name},</p><p><a href="${resetLink}">Clica aqui para redefinir a password</a>. Expira em 15 min.</p>`
         });
 
-        console.log("✅ Email enviado com sucesso para:", user.email);
+        if (error) {
+            console.error("❌ Erro do Resend:", error);
+            return res.status(500).json({ error: "Erro ao enviar o email." });
+        }
+
+        console.log("✅ Email enviado com sucesso. ID:", data.id);
         res.json({ ok: true, message: "Se o email existir, receberás um link." });
         
     } catch (err) { 
         console.error("❌ ERRO AO ENVIAR EMAIL:", err.message);
-        console.error("Detalhes:", err);
-        res.status(500).json({ error: "Erro ao enviar o email: " + err.message }); 
+        res.status(500).json({ error: "Erro ao enviar o email." }); 
     }
+});
+
+app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+        const { token, newPassword } = req.body;
+        if (!token || newPassword.length < 8) return res.status(400).json({ error: "Dados inválidos." });
+
+        const tokens = readResetTokens();
+        const tokenData = tokens[token];
+        if (!tokenData || tokenData.expires < Date.now()) return res.status(400).json({ error: "Link inválido ou expirado." });
+
+        const users = await getUsers();
+        const user = users.find(u => u.id === tokenData.userId);
+        if (!user) return res.status(404).json({ error: "Utilizador não encontrado." });
+
+        user.passwordHash = await bcrypt.hash(newPassword, 10);
+        await saveUser(user);
+        delete tokens[token];
+        saveResetTokens(tokens);
+        res.json({ ok: true, message: "Palavra-passe alterada!" });
+    } catch (err) { res.status(500).json({ error: "Erro no servidor." }); }
 });
 
 /* ==========================================================
@@ -423,7 +369,6 @@ app.post("/api/orders", async (req, res) => {
         
         const newOrder = { ...parsed.data, seen: false, receivedAt: new Date().toISOString() };
         
-        // Verificar ID duplicado
         const orders = await getOrders();
         if (orders.find(o => o.id === newOrder.id)) {
             newOrder.id = `EDZ-${new Date().getFullYear()}-${String(orders.length + 1).padStart(4, "0")}`;
@@ -467,11 +412,7 @@ app.post("/api/comments", async (req, res) => {
             return res.status(409).json({ error: "Já avaliaste este produto." });
         }
 
-        const newComment = {
-            id: Date.now() + Math.floor(Math.random() * 1000),
-            userId, name: safeName.slice(0, 80), rating, text: safeText.slice(0, 500),
-            productId, productType
-        };
+        const newComment = { id: Date.now() + Math.floor(Math.random() * 1000), userId, name: safeName.slice(0, 80), rating, text: safeText.slice(0, 500), productId, productType };
         await saveComment(newComment);
         res.status(201).json(newComment);
     } catch (err) { res.status(500).json({ error: "Erro." }); }
@@ -489,7 +430,6 @@ app.get("/api/store", async (req, res) => {
     catch (err) { res.status(500).json({ error: "Erro." }); }
 });
 
-// ✅ ROTA QUE FALTAVA: Ir buscar os comentários à base de dados
 app.get("/api/comments", async (req, res) => {
     try {
         const comments = await getComments();
