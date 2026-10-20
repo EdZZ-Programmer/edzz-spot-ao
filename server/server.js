@@ -313,7 +313,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
             to: user.email,
             subject: "Recuperação de Palavra-passe", html: `<p>Olá ${user.name},</p><p><a href="${resetLink}">Clica aqui para redefinir a password</a>. Expira em 15 min.</p>`
         });
-        res.json({ ok: true, testUrl: nodemailer.getTestMessageUrl(info) });
+        res.json({ ok: true, message: "Se o email existir, receberás um link." });
     } catch (err) { res.status(500).json({ error: "Erro ao enviar o email." }); }
 });
 
