@@ -1,3 +1,4 @@
+const nodemailer = require("nodemailer");
 require("dotenv").config();
 
 const express = require("express");
@@ -10,6 +11,15 @@ const os = require("os");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const cors = require("cors");
+const { registerSchema, loginSchema, commentSchema, orderSchema, orderStatusSchema } = require("./schemas");
+const sanitizeHtml = require("sanitize-html");
+const { createClient } = require('@supabase/supabase-js');
+
+// 🛡️ Ligação Segura ao Supabase
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,758 +30,455 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "").split(",").map(s => 
 const DEV_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"];
 
 /* ----------------------------------------------------------
-   CONFIGURAÇÃO
+   CONFIGURAÇÃO E JWT
 ---------------------------------------------------------- */
 const DATA_DIR = path.join(__dirname, "data");
-const USERS_FILE = path.join(DATA_DIR, "users.json");
-const STORE_FILE = path.join(DATA_DIR, "store.json");
-const ORDERS_FILE = path.join(DATA_DIR, "orders.json");
-const LOGINS_FILE = path.join(DATA_DIR, "logins.json");
-const COMMENTS_FILE = path.join(DATA_DIR, "comments.json");
 const SECRET_FILE = path.join(DATA_DIR, ".jwt_secret");
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-if (!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, "[]");
-if (!fs.existsSync(STORE_FILE)) fs.writeFileSync(STORE_FILE, "{}");
-if (!fs.existsSync(ORDERS_FILE)) fs.writeFileSync(ORDERS_FILE, "[]");
-if (!fs.existsSync(LOGINS_FILE)) fs.writeFileSync(LOGINS_FILE, "[]");
-if (!fs.existsSync(COMMENTS_FILE)) fs.writeFileSync(COMMENTS_FILE, "[]");
 
-/* ----------------------------------------------------------
-   JWT_SECRET PERSISTENTE
----------------------------------------------------------- */
 function getPersistentSecret() {
     if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
-
-    if (fs.existsSync(SECRET_FILE)) {
-        return fs.readFileSync(SECRET_FILE, "utf-8").trim();
-    }
-
+    if (fs.existsSync(SECRET_FILE)) return fs.readFileSync(SECRET_FILE, "utf-8").trim();
     const secret = crypto.randomBytes(48).toString("hex");
     fs.writeFileSync(SECRET_FILE, secret);
-    console.log("🔐 JWT_SECRET gerado e guardado em data/.jwt_secret");
     return secret;
 }
-
 const JWT_SECRET = getPersistentSecret();
 
+// ✉️ Configuração do Carteiro (Ethereal para Testes)
+let transporter;
+async function setupEmailTransporter() {
+    let testAccount = await nodemailer.createTestAccount();
+    transporter = nodemailer.createTransport({
+        host: "smtp.ethereal.email",
+        port: 587,
+        secure: false,
+        auth: { user: testAccount.user, pass: testAccount.pass },
+    });
+    console.log("📬 Serviço de Email (Teste) configurado.");
+}
+setupEmailTransporter();
+
+// Base de dados temporária para tokens de recuperação (Ficheiro local)
+const RESET_TOKENS_FILE = path.join(DATA_DIR, "reset_tokens.json");
+if (!fs.existsSync(RESET_TOKENS_FILE)) fs.writeFileSync(RESET_TOKENS_FILE, "{}");
+function readResetTokens() {
+    try { return JSON.parse(fs.readFileSync(RESET_TOKENS_FILE, "utf-8")); } catch { return {}; }
+}
+function saveResetTokens(tokens) {
+    fs.writeFileSync(RESET_TOKENS_FILE, JSON.stringify(tokens, null, 2));
+}
+
 /* ----------------------------------------------------------
-   HELPERS
+   HELPERS (TRADUTORES: O Frontend usa camelCase, a BD usa snake_case)
 ---------------------------------------------------------- */
-function readUsers() {
-    try { return JSON.parse(fs.readFileSync(USERS_FILE, "utf-8")); }
-    catch { return []; }
+// Utilizadores
+async function getUsers() {
+    const { data, error } = await supabase.from('users').select('*');
+    if (error) throw error;
+    // Traduzir snake_case da BD para camelCase que o Node usa
+    return (data || []).map(u => ({
+        ...u,
+        passwordHash: u.password_hash,
+        securityQuestion: u.security_question,
+        securityAnswerHash: u.security_answer_hash,
+        createdAt: u.created_at
+    }));
 }
-function saveUsers(users) {
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+async function saveUser(user) {
+    const { error } = await supabase.from('users').upsert([{
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        password_hash: user.passwordHash,
+        role: user.role,
+        security_question: user.securityQuestion,
+        security_answer_hash: user.securityAnswerHash,
+        created_at: user.createdAt
+    }]);
+    if (error) throw error;
 }
-function readStore() {
-    try { return JSON.parse(fs.readFileSync(STORE_FILE, "utf-8")); }
-    catch { return {}; }
+
+// Pedidos
+async function getOrders() {
+    const { data, error } = await supabase.from('orders').select('*').order('date', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(o => ({
+        ...o,
+        customer: { 
+            name: o.customer_name, email: o.customer_email, phone: o.customer_phone, 
+            address: o.customer_address, zone: o.customer_zone, zoneLabel: o.customer_zone 
+        },
+        paymentMethod: o.payment_method
+    }));
 }
-function saveStore(store) {
-    fs.writeFileSync(STORE_FILE, JSON.stringify(store));
+async function saveOrder(order) {
+    const { error } = await supabase.from('orders').upsert([{
+        id: order.id,
+        customer_name: order.customer.name,
+        customer_email: order.customer.email,
+        customer_phone: order.customer.phone,
+        customer_address: order.customer.address,
+        customer_zone: order.customer.zone || null,
+        items: order.items,
+        subtotal: order.subtotal,
+        shipping: order.shipping,
+        total: order.total,
+        payment_method: order.paymentMethod,
+        status: order.status,
+        seen: order.seen || false,
+        date: order.date
+    }]);
+    if (error) throw error;
 }
-function readOrders() {
-    try { return JSON.parse(fs.readFileSync(ORDERS_FILE, "utf-8")); }
-    catch { return []; }
+
+// Logins
+async function getLogins() {
+    const { data, error } = await supabase.from('logins').select('*').order('date', { ascending: false }).limit(500);
+    if (error) throw error;
+    return data || [];
 }
-function saveOrders(orders) {
-    fs.writeFileSync(ORDERS_FILE, JSON.stringify(orders, null, 2));
+async function registerLogin({ email, name, role, ip, userAgent, success }) {
+    try {
+        await supabase.from('logins').insert([{
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            email, name: name || "—", role: role || "—", ip: ip || "—", user_agent: userAgent || "—", success: !!success
+        }]);
+    } catch (err) { console.error("Erro registar login:", err.message); }
 }
-function readLogins() {
-    try { return JSON.parse(fs.readFileSync(LOGINS_FILE, "utf-8")); }
-    catch { return []; }
+
+// Comentários
+async function getComments() {
+    const { data, error } = await supabase.from('comments').select('*').order('date', { ascending: true });
+    if (error) throw error;
+    return (data || []).map(c => ({
+        ...c, userId: c.user_id, productId: c.product_id, productType: c.product_type
+    }));
 }
-function saveLogins(logins) {
-    if (logins.length > 500) logins = logins.slice(-500);
-    fs.writeFileSync(LOGINS_FILE, JSON.stringify(logins, null, 2));
+async function saveComment(comment) {
+    const { error } = await supabase.from('comments').insert([{
+        id: comment.id, product_id: comment.productId, product_type: comment.productType,
+        user_id: comment.userId, name: comment.name, rating: comment.rating, text: comment.text
+    }]);
+    if (error) throw error;
 }
-function readComments() {
-    try { return JSON.parse(fs.readFileSync(COMMENTS_FILE, "utf-8")); }
-    catch { return []; }
+async function deleteComment(id) {
+    const { error } = await supabase.from('comments').delete().eq('id', id);
+    if (error) throw error;
 }
-function saveComments(data) {
-    fs.writeFileSync(COMMENTS_FILE, JSON.stringify(data, null, 2));
+
+// Store (Produtos, Jogos, Configurações)
+async function getStore() {
+    const { data, error } = await supabase.from('store').select('key, value');
+    if (error) { if (error.code === '42P01') return {}; throw error; }
+    const storeObj = {};
+    data.forEach(item => { storeObj[item.key] = item.value; });
+    return storeObj;
 }
-function validateEmail(email) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+async function saveStoreKey(key, value) {
+    const { error } = await supabase.from('store').upsert([{ key, value }]);
+    if (error) throw error;
 }
-function getLocalIP() {
-    const nets = os.networkInterfaces();
-    for (const name of Object.keys(nets)) {
-        for (const net of nets[name]) {
-            if (net.family === "IPv4" && !net.internal) return net.address;
-        }
-    }
-    return "localhost";
-}
+
+// Verificar Admin
 function verifyAdmin(req) {
     try {
         const auth = req.headers.authorization || "";
         const token = auth.replace("Bearer ", "").trim();
         if (!token) return null;
-        
-        // Valida o token
         const decoded = jwt.verify(token, JWT_SECRET);
         if (decoded.role !== "admin") return null;
-
-        // Valida na base de dados (se ele ainda existe e se ainda é admin)
-        const users = readUsers();
-        const user = users.find(u => u.id === decoded.id);
-        
-        if (!user || user.role !== "admin") return null;
-
-        return user;
+        return decoded; 
     } catch { return null; }
-}
-
-function registerLogin({ email, name, role, ip, userAgent, success }) {
-    try {
-        const logins = readLogins();
-        logins.push({
-            id: Date.now() + Math.floor(Math.random() * 1000),
-            email,
-            name: name || "—",
-            role: role || "—",
-            ip: ip || "—",
-            userAgent: userAgent || "—",
-            success: !!success,
-            date: new Date().toISOString()
-        });
-        saveLogins(logins);
-    } catch (err) {
-        console.error("Erro a registar login:", err);
-    }
 }
 
 /* ----------------------------------------------------------
    MIDDLEWARES DE SEGURANÇA
 ---------------------------------------------------------- */
-
-// 1) HELMET — Protege os headers HTTP (XSS, Clickjacking, etc.)
-app.use(helmet({
-    contentSecurityPolicy: false, // Desativado para não bloquear o Chart.js
-    crossOriginEmbedderPolicy: false,
-    crossOriginResourcePolicy: { policy: "cross-origin" }
-}));
-app.disable("x-powered-by"); // Esconde que usas Express
-
-// 2) CORS — Só aceita pedidos do teu próprio site
-app.use(cors({
-    origin: (origin, callback) => {
-        if (!origin) return callback(null, true);
-        const allowed = IS_PROD ? ALLOWED_ORIGINS : [...ALLOWED_ORIGINS, ...DEV_ORIGINS];
-        
-        // Permite túneis Cloudflare em desenvolvimento
-        if (!IS_PROD && origin.includes(".trycloudflare.com")) return callback(null, true);
-        
-        if (allowed.includes(origin)) return callback(null, true);
-        return callback(new Error("Origem não permitida pelo CORS."));
-    },
-    credentials: true
-}));
-
-// 3) TRUST PROXY — Necessário para o Rate Limit funcionar atrás do Cloudflare
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false, crossOriginResourcePolicy: { policy: "cross-origin" } }));
+app.disable("x-powered-by");
+app.use(cors({ origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const allowed = IS_PROD ? ALLOWED_ORIGINS : [...ALLOWED_ORIGINS, ...DEV_ORIGINS];
+    if (!IS_PROD && origin.includes(".trycloudflare.com")) return callback(null, true);
+    if (allowed.includes(origin)) return callback(null, true);
+    return callback(new Error("Origem não permitida pelo CORS."));
+}, credentials: true }));
 app.set("trust proxy", 1);
 
-// 4) RATE LIMITING — Proteção contra Brute Force e Spam
-const globalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, max: 500, // 500 pedidos / 15 min
-    message: { error: "Demasiados pedidos. Tenta daqui a 15 minutos." }
-});
-app.use("/api/", globalLimiter);
+app.use("/api/", rateLimit({ windowMs: 15 * 60 * 1000, max: 500, message: { error: "Demasiados pedidos." } }));
+app.use("/api/auth/login", rateLimit({ windowMs: 15 * 60 * 1000, max: 10, skipSuccessfulRequests: true, message: { error: "Demasiadas tentativas de login." } }));
 
-const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, max: 10, // 10 tentativas de login / 15 min
-    skipSuccessfulRequests: true,
-    message: { error: "Demasiadas tentativas de login. Tenta daqui a 15 minutos." }
-});
-app.use("/api/auth/login", loginLimiter);
-
-// 5) BODY PARSERS (Reduzido de 50mb para 2mb para evitar DOS)
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
-
-// 6) LOGGER (Agora mostra o IP)
-app.use((req, res, next) => {
-    const time = new Date().toLocaleTimeString("pt-PT");
-    console.log(`[${time}] ${req.method} ${req.url} — IP: ${req.ip}`);
-    next();
-});
-
-// 7) STATIC FILES
-app.use(express.static(path.join(__dirname, "..", "public"), {
-    setHeaders: (res, filePath) => {
-        if (/\.(html|css|js)$/.test(filePath)) {
-            res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-        }
-    }
-}));
+app.use((req, res, next) => { console.log(`[${new Date().toLocaleTimeString("pt-PT")}] ${req.method} ${req.url}`); next(); });
+app.use(express.static(path.join(__dirname, "..", "public")));
 
 /* ==========================================================
-   API — REGISTO
+   ROTAS DE AUTENTICAÇÃO
 ========================================================== */
 app.post("/api/auth/register", async (req, res) => {
     try {
-        const { name, email, password, phone, securityQuestion, securityAnswer } = req.body;
+        const parsed = registerSchema.safeParse(req.body);
+        if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
+        const { name, email, password, phone, securityQuestion, securityAnswer } = parsed.data;
 
-        if (!name || !email || !password) {
-            return res.status(400).json({ error: "Nome, email e palavra-passe são obrigatórios." });
-        }
-        if (!validateEmail(email)) {
-            return res.status(400).json({ error: "Email inválido." });
-        }
-        if (password.length < 6) {
-            return res.status(400).json({ error: "A palavra-passe precisa de pelo menos 6 caracteres." });
-        }
-
-        const users = readUsers();
+        const users = await getUsers();
         const emailLower = email.toLowerCase().trim();
 
-        if (users.find(u => u.email === emailLower)) {
-            return res.status(409).json({ error: "Este email já está registado." });
-        }
+        if (users.find(u => u.email === emailLower)) return res.status(409).json({ error: "Este email já está registado." });
 
         const passwordHash = await bcrypt.hash(password, 10);
-
-        const user = {
+        const newUser = {
             id: Date.now() + Math.floor(Math.random() * 1000),
-            name: name.trim(),
-            email: emailLower,
-            phone: (phone || "").trim(),
-            passwordHash,
-            role: "client",
+            name: name.trim(), email: emailLower, phone: (phone || "").trim(),
+            passwordHash, role: "client",
             securityQuestion: securityQuestion ? String(securityQuestion).trim() : null,
-            securityAnswerHash: securityAnswer
-                ? await bcrypt.hash(String(securityAnswer).toLowerCase().trim(), 10)
-                : null,
+            securityAnswerHash: securityAnswer ? await bcrypt.hash(String(securityAnswer).toLowerCase().trim(), 10) : null,
             createdAt: new Date().toISOString()
         };
 
-        users.push(user);
-        saveUsers(users);
+        await saveUser(newUser);
+        registerLogin({ email: newUser.email, name: newUser.name, role: newUser.role, ip: req.ip, userAgent: req.headers["user-agent"], success: true });
 
-        // ✅ Regista também o momento do registo como login
-        const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "—";
-        const ua = req.headers["user-agent"] || "—";
-        registerLogin({
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            ip,
-            userAgent: ua,
-            success: true
-        });
-
-        const token = jwt.sign(
-            { id: user.id, email: user.email, role: user.role },
-            JWT_SECRET,
-            { expiresIn: "30d" }
-        );
-
-        console.log(`✅ Novo utilizador: ${user.email}`);
-
-        res.status(201).json({
-            message: "Conta criada com sucesso!",
-            token,
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                phone: user.phone,
-                role: user.role,
-                hasSecurityQuestion: !!user.securityQuestion
-            }
-        });
-
+        const token = jwt.sign({ id: newUser.id, email: newUser.email, role: newUser.role }, JWT_SECRET, { expiresIn: "30d" });
+        res.status(201).json({ message: "Conta criada!", token, user: { id: newUser.id, name: newUser.name, email: newUser.email, phone: newUser.phone, role: newUser.role, hasSecurityQuestion: !!newUser.securityQuestion } });
     } catch (err) {
-        console.error("Erro no registo:", err);
+        console.error("Erro registo:", err);
         res.status(500).json({ error: "Erro no servidor." });
     }
 });
 
-/* ==========================================================
-   API — LOGIN
-========================================================== */
 app.post("/api/auth/login", async (req, res) => {
     try {
-        const { email, password } = req.body;
-        const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "—";
-        const ua = req.headers["user-agent"] || "—";
+        const parsed = loginSchema.safeParse(req.body);
+        if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
+        const { email, password } = parsed.data;
 
-        if (!email || !password) {
-            return res.status(400).json({ error: "Email e palavra-passe são obrigatórios." });
-        }
+        const users = await getUsers();
+        const user = users.find(u => u.email === email.toLowerCase().trim());
 
-        const users = readUsers();
-        const emailLower = email.toLowerCase().trim();
-        const user = users.find(u => u.email === emailLower);
-
-        if (!user) {
-            registerLogin({ email: emailLower, ip, userAgent: ua, success: false });
+        if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+            registerLogin({ email, ip: req.ip, userAgent: req.headers["user-agent"], success: false });
             return res.status(401).json({ error: "Email ou palavra-passe incorretos." });
         }
 
-        const passwordOk = await bcrypt.compare(password, user.passwordHash);
-        if (!passwordOk) {
-            registerLogin({ email: emailLower, name: user.name, role: user.role, ip, userAgent: ua, success: false });
-            return res.status(401).json({ error: "Email ou palavra-passe incorretos." });
-        }
-
-        registerLogin({ email: user.email, name: user.name, role: user.role, ip, userAgent: ua, success: true });
-
-        const token = jwt.sign(
-            { id: user.id, email: user.email, role: user.role },
-            JWT_SECRET,
-            { expiresIn: "30d" }
-        );
-
-        console.log(`🔓 Login: ${user.email}`);
-
-        res.json({
-            message: "Login realizado!",
-            token,
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                phone: user.phone,
-                role: user.role,
-                hasSecurityQuestion: !!user.securityQuestion
-            }
-        });
-
-    } catch (err) {
-        console.error("Erro no login:", err);
-        res.status(500).json({ error: "Erro no servidor." });
+        registerLogin({ email: user.email, name: user.name, role: user.role, ip: req.ip, userAgent: req.headers["user-agent"], success: true });
+        const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: "30d" });
+        res.json({ message: "Login realizado!", token, user: { id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role, hasSecurityQuestion: !!user.securityQuestion } });
+        } catch (err) { 
+        console.error("❌ ERRO NO LOGIN:", err); // Isto vai mostrar o erro real no terminal!
+        res.status(500).json({ error: "Erro no servidor." }); 
     }
 });
 
-/* ==========================================================
-   API — SESSÃO
-========================================================== */
-app.get("/api/auth/me", (req, res) => {
+app.get("/api/auth/me", async (req, res) => {
     try {
-        const auth = req.headers.authorization || "";
-        const token = auth.replace("Bearer ", "").trim();
+        const token = (req.headers.authorization || "").replace("Bearer ", "").trim();
         if (!token) return res.status(401).json({ error: "Sem token." });
-
         const decoded = jwt.verify(token, JWT_SECRET);
-        const users = readUsers();
+        const users = await getUsers();
         const user = users.find(u => u.id === decoded.id);
-
         if (!user) return res.status(404).json({ error: "Utilizador não encontrado." });
-
-        res.json({
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                phone: user.phone,
-                role: user.role,
-                hasSecurityQuestion: !!user.securityQuestion
-            }
-        });
-
-    } catch {
-        res.status(401).json({ error: "Sessão inválida ou expirada." });
-    }
+        res.json({ user: { id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role, hasSecurityQuestion: !!user.securityQuestion } });
+    } catch { res.status(401).json({ error: "Sessão inválida." }); }
 });
 
 /* ==========================================================
-   API — RECUPERAÇÃO DE SENHA
+   RECUPERAÇÃO DE SENHA
 ========================================================== */
-app.post("/api/auth/recover-question", (req, res) => {
+app.post("/api/auth/forgot-password", async (req, res) => {
     try {
         const { email } = req.body;
-        if (!email) return res.status(400).json({ error: "Email é obrigatório." });
-
-        const users = readUsers();
+        const users = await getUsers();
         const user = users.find(u => u.email === email.toLowerCase().trim());
 
-        if (!user) return res.status(404).json({ error: "Email não encontrado." });
-        if (!user.securityQuestion) {
-            return res.status(400).json({ error: "Este utilizador não definiu pergunta de segurança. Contacta o administrador." });
-        }
+        if (!user) return res.json({ ok: true, message: "Se o email existir, receberás um link." });
 
-        res.json({ question: user.securityQuestion });
-    } catch (err) {
-        console.error("Erro recover-question:", err);
-        res.status(500).json({ error: "Erro no servidor." });
-    }
+        const token = crypto.randomBytes(32).toString("hex");
+        const tokens = readResetTokens();
+        tokens[token] = { userId: user.id, expires: Date.now() + 15 * 60 * 1000 };
+        saveResetTokens(tokens);
+
+        const resetLink = `http://localhost:3000/?resetToken=${token}`;
+        const info = await transporter.sendMail({
+            from: '"EdZZ-Spot AO" <suporte@edzzspot.ao>', to: user.email,
+            subject: "Recuperação de Palavra-passe", html: `<p>Olá ${user.name},</p><p><a href="${resetLink}">Clica aqui para redefinir a password</a>. Expira em 15 min.</p>`
+        });
+        res.json({ ok: true, testUrl: nodemailer.getTestMessageUrl(info) });
+    } catch (err) { res.status(500).json({ error: "Erro ao enviar o email." }); }
 });
 
-app.post("/api/auth/recover", async (req, res) => {
+app.post("/api/auth/reset-password", async (req, res) => {
     try {
-        const { email, answer, newPassword } = req.body;
+        const { token, newPassword } = req.body;
+        if (!token || newPassword.length < 8) return res.status(400).json({ error: "Dados inválidos." });
 
-        if (!email || !answer || !newPassword) {
-            return res.status(400).json({ error: "Preenche todos os campos." });
-        }
-        if (newPassword.length < 6) {
-            return res.status(400).json({ error: "A palavra-passe precisa de pelo menos 6 caracteres." });
-        }
+        const tokens = readResetTokens();
+        const tokenData = tokens[token];
+        if (!tokenData || tokenData.expires < Date.now()) return res.status(400).json({ error: "Link inválido ou expirado." });
 
-        const users = readUsers();
-        const user = users.find(u => u.email === email.toLowerCase().trim());
-
-        if (!user) return res.status(404).json({ error: "Email não encontrado." });
-        if (!user.securityAnswerHash) {
-            return res.status(400).json({ error: "Conta sem pergunta de segurança." });
-        }
-
-        const answerOk = await bcrypt.compare(
-            String(answer).toLowerCase().trim(),
-            user.securityAnswerHash
-        );
-
-        if (!answerOk) {
-            return res.status(401).json({ error: "Resposta de segurança incorreta." });
-        }
+        const users = await getUsers();
+        const user = users.find(u => u.id === tokenData.userId);
+        if (!user) return res.status(404).json({ error: "Utilizador não encontrado." });
 
         user.passwordHash = await bcrypt.hash(newPassword, 10);
-        saveUsers(users);
-
-        console.log(`🔐 Recuperação: ${user.email}`);
-
-        res.json({ ok: true, message: "Palavra-passe alterada com sucesso." });
-    } catch (err) {
-        console.error("Erro recover:", err);
-        res.status(500).json({ error: "Erro no servidor." });
-    }
+        await saveUser(user);
+        delete tokens[token];
+        saveResetTokens(tokens);
+        res.json({ ok: true, message: "Palavra-passe alterada!" });
+    } catch (err) { res.status(500).json({ error: "Erro no servidor." }); }
 });
 
 /* ==========================================================
-   API — ADMIN: GERIR UTILIZADORES
+   ADMIN E UTILIZADORES
 ========================================================== */
-app.get("/api/users", (req, res) => {
-    const admin = verifyAdmin(req);
-    if (!admin) return res.status(403).json({ error: "Sem permissão." });
-
-    const users = readUsers();
-    const safe = users.map(u => ({
-        id: u.id,
-        name: u.name,
-        email: u.email,
-        phone: u.phone,
-        role: u.role,
-        createdAt: u.createdAt,
-        hasSecurityQuestion: !!u.securityQuestion
-    }));
-
-    res.json(safe);
+app.get("/api/users", async (req, res) => {
+    if (!verifyAdmin(req)) return res.status(403).json({ error: "Sem permissão." });
+    const users = await getUsers();
+    res.json(users.map(u => ({ id: u.id, name: u.name, email: u.email, phone: u.phone, role: u.role, createdAt: u.createdAt, hasSecurityQuestion: !!u.securityQuestion })));
 });
 
 app.post("/api/auth/admin-reset", async (req, res) => {
-    const admin = verifyAdmin(req);
-    if (!admin) return res.status(403).json({ error: "Sem permissão." });
-
+    if (!verifyAdmin(req)) return res.status(403).json({ error: "Sem permissão." });
     try {
         const { userId, newPassword } = req.body;
-
-        if (!userId || !newPassword) return res.status(400).json({ error: "Faltam dados." });
-        if (newPassword.length < 6) return res.status(400).json({ error: "Password muito curta." });
-
-        const users = readUsers();
+        const users = await getUsers();
         const user = users.find(u => u.id === Number(userId));
-
         if (!user) return res.status(404).json({ error: "Utilizador não encontrado." });
-
         user.passwordHash = await bcrypt.hash(newPassword, 10);
-        saveUsers(users);
+        await saveUser(user);
+        res.json({ ok: true, message: "Senha redefinida." });
+    } catch (err) { res.status(500).json({ error: "Erro no servidor." }); }
+});
 
-        console.log(`🔑 Admin redefiniu: ${user.email}`);
-
-        res.json({
-            ok: true,
-            message: `Senha de ${user.name} redefinida.`,
-            user: { id: user.id, name: user.name, email: user.email }
-        });
-    } catch (err) {
-        console.error("Erro admin-reset:", err);
-        res.status(500).json({ error: "Erro no servidor." });
-    }
+app.get("/api/logins", async (req, res) => {
+    if (!verifyAdmin(req)) return res.status(403).json({ error: "Sem permissão." });
+    const logins = await getLogins();
+    res.json(logins);
 });
 
 /* ==========================================================
-   API — LOGINS
+   FATURAS E PEDIDOS
 ========================================================== */
-app.get("/api/logins", (req, res) => {
-    const admin = verifyAdmin(req);
-    if (!admin) return res.status(403).json({ error: "Sem permissão." });
-
-    try {
-        const logins = readLogins();
-        res.json(logins.reverse());
-    } catch (err) {
-        res.status(500).json({ error: "Erro." });
-    }
+app.get("/api/invoices", async (req, res) => {
+    if (!verifyAdmin(req)) return res.status(403).json({ error: "Sem permissão." });
+    const orders = await getOrders();
+    res.json(orders);
 });
 
-/* ==========================================================
-   API — FATURAS
-========================================================== */
-app.get("/api/invoices", (req, res) => {
-    const admin = verifyAdmin(req);
-    if (!admin) return res.status(403).json({ error: "Sem permissão." });
-
+app.get("/api/my-invoices", async (req, res) => {
     try {
-        const orders = readOrders();
-        const invoices = orders.map(o => ({
-            id: o.id,
-            date: o.date,
-            customer: o.customer,
-            items: o.items,
-            subtotal: o.subtotal,
-            shipping: o.shipping,
-            total: o.total,
-            paymentMethod: o.paymentMethod,
-            status: o.status,
-            seen: o.seen
-        }));
-        res.json(invoices.reverse());
-    } catch (err) {
-        res.status(500).json({ error: "Erro." });
-    }
-});
-
-app.get("/api/my-invoices", (req, res) => {
-    try {
-        const auth = req.headers.authorization || "";
-        const token = auth.replace("Bearer ", "").trim();
-        if (!token) return res.status(401).json({ error: "Sem token." });
-
+        const token = (req.headers.authorization || "").replace("Bearer ", "").trim();
         const decoded = jwt.verify(token, JWT_SECRET);
-        const orders = readOrders();
+        const orders = await getOrders();
         const mine = orders.filter(o => o.customer?.email === decoded.email);
-        res.json(mine.reverse());
-    } catch {
-        res.status(401).json({ error: "Sessão inválida." });
-    }
+        res.json(mine);
+    } catch { res.status(401).json({ error: "Sessão inválida." }); }
+});
+
+app.get("/api/orders", async (req, res) => {
+    const orders = await getOrders();
+    res.json(orders);
+});
+
+app.post("/api/orders", async (req, res) => {
+    try {
+        const parsed = orderSchema.safeParse(req.body);
+        if (!parsed.success) return res.status(400).json({ error: "Pedido inválido: " + parsed.error.errors[0].message });
+        
+        const newOrder = { ...parsed.data, seen: false, receivedAt: new Date().toISOString() };
+        
+        // Verificar ID duplicado
+        const orders = await getOrders();
+        if (orders.find(o => o.id === newOrder.id)) {
+            newOrder.id = `EDZ-${new Date().getFullYear()}-${String(orders.length + 1).padStart(4, "0")}`;
+        }
+
+        await saveOrder(newOrder);
+        res.status(201).json({ ok: true, id: newOrder.id });
+    } catch (err) { res.status(500).json({ error: "Erro a gravar pedido." }); }
+});
+
+app.patch("/api/orders/:id/seen", async (req, res) => {
+    try {
+        await supabase.from('orders').update({ seen: true }).eq('id', req.params.id);
+        res.json({ ok: true });
+    } catch (err) { res.status(500).json({ error: "Erro." }); }
+});
+
+app.patch("/api/orders/:id/status", async (req, res) => {
+    try {
+        const parsed = orderStatusSchema.safeParse(req.body);
+        if (!parsed.success) return res.status(400).json({ error: "Estado inválido." });
+        await supabase.from('orders').update({ status: parsed.data.status }).eq('id', req.params.id);
+        res.json({ ok: true, status: parsed.data.status });
+    } catch (err) { res.status(500).json({ error: "Erro." }); }
 });
 
 /* ==========================================================
-   API — COMENTÁRIOS
+   COMENTÁRIOS E STORE
 ========================================================== */
-app.get("/api/comments", (req, res) => {
-    try { res.json(readComments()); }
-    catch (err) { res.status(500).json({ error: "Erro." }); }
-});
-
-app.post("/api/comments", (req, res) => {
+app.post("/api/comments", async (req, res) => {
     try {
-        const { userId, name, rating, text, productId, productType } = req.body;
-        if (!name || !text) return res.status(400).json({ error: "Faltam dados." });
+        const parsed = commentSchema.safeParse(req.body);
+        if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
+        
+        const { userId, name, rating, text, productId, productType } = parsed.data;
+        const safeText = sanitizeHtml(text, { allowedTags: [], allowedAttributes: {} });
+        const safeName = sanitizeHtml(name, { allowedTags: [], allowedAttributes: {} });
 
-        const comments = readComments();
-
-        // 🆕 Se for review de produto, verifica se o user já avaliou este produto
-        if (productId != null && userId != null) {
-            const jaAvaliou = comments.some(c =>
-                c.productId === productId &&
-                c.userId === userId
-            );
-            if (jaAvaliou) {
-                return res.status(409).json({ error: "Já avaliaste este produto." });
-            }
+        const comments = await getComments();
+        if (productId != null && userId != null && comments.some(c => c.productId === productId && c.userId === userId)) {
+            return res.status(409).json({ error: "Já avaliaste este produto." });
         }
 
         const newComment = {
             id: Date.now() + Math.floor(Math.random() * 1000),
-            userId: userId || null,
-            name: String(name).slice(0, 80),
-            rating: Number(rating) || 5,
-            text: String(text).slice(0, 500),
-            date: new Date().toISOString(),
-            // 🆕 Campos novos (null para comentários gerais do site)
-            productId: productId ?? null,
-            productType: productType ?? null
+            userId, name: safeName.slice(0, 80), rating, text: safeText.slice(0, 500),
+            productId, productType
         };
-
-        comments.push(newComment);
-        saveComments(comments);
-
-        const tipo = newComment.productId ? `[${newComment.productType}#${newComment.productId}]` : "[site]";
-        console.log(`💬 Comentário ${tipo}: ${newComment.name} — ${newComment.rating}★`);
+        await saveComment(newComment);
         res.status(201).json(newComment);
-    } catch (err) {
-        res.status(500).json({ error: "Erro." });
-    }
+    } catch (err) { res.status(500).json({ error: "Erro." }); }
 });
 
-app.delete("/api/comments/:id", (req, res) => {
+app.delete("/api/comments/:id", async (req, res) => {
     try {
-        const id = Number(req.params.id);
-        const comments = readComments().filter(c => c.id !== id);
-        saveComments(comments);
+        await deleteComment(Number(req.params.id));
         res.json({ ok: true });
-    } catch (err) {
-        res.status(500).json({ error: "Erro." });
-    }
+    } catch (err) { res.status(500).json({ error: "Erro." }); }
 });
 
-/* ==========================================================
-   API — STORE
-========================================================== */
-app.get("/api/store", (req, res) => {
-    try { res.json(readStore()); }
+app.get("/api/store", async (req, res) => {
+    try { res.json(await getStore()); } 
     catch (err) { res.status(500).json({ error: "Erro." }); }
 });
 
-app.post("/api/store", (req, res) => {
+app.post("/api/store", async (req, res) => {
     try {
         const { key, value } = req.body;
         if (!key) return res.status(400).json({ error: "Falta 'key'." });
-
-        const store = readStore();
-        store[key] = value;
-        saveStore(store);
-
-        res.json({ ok: true, key });
-    } catch (err) {
-        res.status(500).json({ error: "Erro." });
-    }
+        await saveStoreKey(key, value);
+        res.json({ ok: true });
+    } catch (err) { res.status(500).json({ error: "Erro." }); }
 });
-
-/* ==========================================================
-   API — PEDIDOS
-========================================================== */
-app.get("/api/orders", (req, res) => {
-    try { res.json(readOrders()); }
-    catch (err) { res.status(500).json({ error: "Erro." }); }
-});
-
-app.post("/api/orders", (req, res) => {
-    try {
-        const order = req.body;
-        if (!order || !order.id) {
-            return res.status(400).json({ error: "Pedido inválido." });
-        }
-
-        const orders = readOrders();
-
-        // ✅ Garante que o ID é único
-        let finalId = order.id;
-        if (orders.find(o => o.id === finalId)) {
-            const year = new Date().getFullYear();
-            let seq = orders.length + 1;
-            let candidate = `EDZ-${year}-${String(seq).padStart(4, "0")}`;
-
-            while (orders.find(o => o.id === candidate)) {
-                seq++;
-                candidate = `EDZ-${year}-${String(seq).padStart(4, "0")}`;
-            }
-
-            console.log(`⚠️ ID duplicado: ${order.id} → ${finalId}`);
-            finalId = candidate;
-        }
-
-        order.id = finalId;
-        order.seen = false;
-        order.receivedAt = new Date().toISOString();
-        orders.push(order);
-        saveOrders(orders);
-
-        console.log(`🛒 Novo pedido: ${order.id} — ${order.customer?.name || "?"} — ${order.total} Kz`);
-
-        res.status(201).json({ ok: true, id: order.id });
-    } catch (err) {
-        console.error("Erro a gravar pedido:", err);
-        res.status(500).json({ error: "Erro." });
-    }
-});
-
-app.patch("/api/orders/:id/seen", (req, res) => {
-    try {
-        const orders = readOrders();
-        let count = 0;
-
-        // ✅ Marca TODOS os pedidos com este ID como lidos
-        // (resolve IDs duplicados antigos)
-        orders.forEach(o => {
-            if (o.id === req.params.id) {
-                o.seen = true;
-                count++;
-            }
-        });
-
-        saveOrders(orders);
-        console.log(`✅ Pedido ${req.params.id} marcado como lido (${count} registos)`);
-
-        res.json({ ok: true, marked: count });
-    } catch (err) {
-        res.status(500).json({ error: "Erro." });
-    }
-});
-
-/* ==========================================================
-   API — ALTERAR ESTADO DO PEDIDO
-========================================================== */
-app.patch("/api/orders/:id/status", (req, res) => {
-    try {
-        const { status } = req.body;
-        const validStatuses = ["Pendente", "Confirmado", "Enviado", "Entregue", "Cancelado"];
-
-        if (!validStatuses.includes(status)) {
-            return res.status(400).json({ error: "Estado inválido." });
-        }
-
-        const orders = readOrders();
-        const order = orders.find(o => o.id === req.params.id);
-
-        if (!order) {
-            return res.status(404).json({ error: "Pedido não encontrado." });
-        }
-
-        order.status = status;
-        order.updatedAt = new Date().toISOString();
-        saveOrders(orders);
-
-        console.log(`📦 Pedido ${order.id} → ${status}`);
-
-        res.json({ ok: true, id: order.id, status });
-    } catch (err) {
-        console.error("Erro a alterar estado:", err);
-        res.status(500).json({ error: "Erro no servidor." });
-    }
-});
-
 
 /* ----------------------------------------------------------
    TRATAMENTO GLOBAL DE ERROS
-   (Impede que o servidor caia e esconde "stack traces" em produção)
 ---------------------------------------------------------- */
 app.use((err, req, res, next) => {
     console.error("❌ Erro detetado:", err.message);
-
-    if (err.message === "Origem não permitida pelo CORS.") {
-        return res.status(403).json({ error: "Origem não autorizada." });
-    }
-    if (err.type === "entity.too.large") {
-        return res.status(413).json({ error: "Ficheiro/Pedido demasiado grande." });
-    }
-    if (err.status === 429) {
-        return res.status(429).json({ error: "Demasiados pedidos. Acelera menos!" });
-    }
-
-    res.status(err.status || 500).json({ 
-        error: IS_PROD ? "Erro interno do servidor." : err.message 
-    });
+    if (err.message === "Origem não permitida pelo CORS.") return res.status(403).json({ error: "Origem não autorizada." });
+    if (err.type === "entity.too.large") return res.status(413).json({ error: "Pedido demasiado grande." });
+    res.status(err.status || 500).json({ error: IS_PROD ? "Erro interno do servidor." : err.message });
 });
 
 /* ----------------------------------------------------------
    ARRANQUE
 ---------------------------------------------------------- */
 app.listen(PORT, "0.0.0.0", () => {
-    console.log("");
-    console.log("═══════════════════════════════════════════════");
-    console.log("  🎮  EdZZ-Spot AO — Servidor local activo");
-    console.log("═══════════════════════════════════════════════");
-    console.log(`  🖥️  Local:    http://localhost:${PORT}`);
-    console.log(`  📱  Rede:     http://${getLocalIP()}:${PORT}`);
-    console.log("");
-    console.log("  Pressiona CTRL+C para parar.");
-    console.log("═══════════════════════════════════════════════");
-    console.log("");
+    console.log(`🎮 EdZZ-Spot AO — Servidor ativo em http://localhost:${PORT}`);
 });

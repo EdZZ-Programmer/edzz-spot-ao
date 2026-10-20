@@ -899,8 +899,8 @@
 
         <header class="auth-header">
             <span class="section-label">RECUPERAÇÃO</span>
-            <h2>Recuperar palavra-passe</h2>
-            <p id="recoverSubtitle">Insere o teu email para começares.</p>
+            <h2 id="recoverTitle">Recuperar palavra-passe</h2>
+            <p id="recoverSubtitle">Insere o teu email para receberes um link seguro.</p>
         </header>
 
         <form id="recoverStep1" class="auth-form active">
@@ -908,28 +908,17 @@
                 <label for="recoverEmail">Email da conta</label>
                 <input id="recoverEmail" name="recoverEmail" type="email" required>
             </div>
-            <button class="btn btn-primary" type="submit" id="recoverStep1Btn">Continuar →</button>
+            <button class="btn btn-primary" type="submit" id="recoverStep1Btn">Enviar Link Seguro →</button>
             <button type="button" class="auth-link" id="backToLogin">Voltar ao login</button>
         </form>
 
+        <!-- Formulário de Nova Senha (aparece se houver token no URL) -->
         <form id="recoverStep2" class="auth-form">
             <div class="form-group">
-                <label>Pergunta de segurança</label>
-                <div id="recoverQuestionBox" class="recover-question-box">—</div>
-            </div>
-
-            <div class="form-group">
-                <label for="recoverAnswer">A tua resposta</label>
-                <input id="recoverAnswer" name="recoverAnswer" type="text" required>
-            </div>
-
-            <div class="form-group">
                 <label for="recoverNewPassword">Nova palavra-passe</label>
-                <input id="recoverNewPassword" name="recoverNewPassword" type="password" minlength="6" required>
+                <input id="recoverNewPassword" name="recoverNewPassword" type="password" minlength="8" required placeholder="Mínimo 8 caracteres">
             </div>
-
-            <button class="btn btn-primary" type="submit" id="recoverStep2Btn">Alterar palavra-passe</button>
-            <button type="button" class="auth-link" id="backToStep1">← Voltar</button>
+            <button class="btn btn-primary" type="submit" id="recoverStep2Btn">Guardar Nova Palavra-passe</button>
         </form>
 
         <p class="auth-demo" id="recoverMessage"></p>

@@ -2427,51 +2427,60 @@ function showRecoverMessage(text, type = "") {
 async function handleRecoverStep1(e) {
     e.preventDefault();
     const btn = $("recoverStep1Btn");
-    if (btn) { btn.disabled = true; btn.textContent = "A verificar..."; }
+    if (btn) { btn.disabled = true; btn.textContent = "A enviar..."; }
+    
     try {
         const form = new FormData(e.target);
         const email = form.get("recoverEmail");
-        const data = await apiRequest("/api/auth/recover-question", {
+        
+        const data = await apiRequest("/api/auth/forgot-password", {
             method: "POST",
             body: JSON.stringify({ email })
         });
-        recoveryEmail = email;
-        $("recoverQuestionBox").textContent = data.question;
-        setText("recoverSubtitle", "Responde à tua pergunta de segurança.");
-        showRecoverMessage("");
-        $("recoverStep1").classList.remove("active");
-        $("recoverStep2").classList.add("active");
+        
+        // Mostra a mensagem de sucesso
+        showRecoverMessage("📧 Link enviado! Verifica a tua caixa de entrada (e o Spam).", "success");
+        
+        // ⚠️ APENAS PARA TESTES: Se estiveres em localhost, o servidor devolve o link do Ethereal
+        if (data.testUrl) {
+            console.log("Abre este link para ver o email de teste:", data.testUrl);
+            window.open(data.testUrl, "_blank"); // Abre automaticamente para veres
+        }
     } catch (err) {
         showRecoverMessage(err.message, "error");
     } finally {
-        if (btn) { btn.disabled = false; btn.textContent = "Continuar →"; }
+        if (btn) { btn.disabled = false; btn.textContent = "Enviar Link Seguro →"; }
     }
 }
 
 async function handleRecoverStep2(e) {
     e.preventDefault();
     const btn = $("recoverStep2Btn");
-    if (btn) { btn.disabled = true; btn.textContent = "A alterar..."; }
+    if (btn) { btn.disabled = true; btn.textContent = "A guardar..."; }
+    
     try {
         const form = new FormData(e.target);
-        const answer = form.get("recoverAnswer");
         const newPassword = form.get("recoverNewPassword");
-        await apiRequest("/api/auth/recover", {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get("resetToken");
+
+        await apiRequest("/api/auth/reset-password", {
             method: "POST",
-            body: JSON.stringify({ email: recoveryEmail, answer, newPassword })
+            body: JSON.stringify({ token, newPassword })
         });
+
         showRecoverMessage("Palavra-passe alterada com sucesso!", "success");
         setTimeout(() => {
+            window.history.replaceState({}, document.title, window.location.pathname); // Limpa o token do URL
             closeModal("recoverModal");
             switchAuthTab("login");
             openModal("loginModal");
-            resetRecoverForm();
             showToast("Sucesso", "Já podes entrar com a nova palavra-passe.");
-        }, 1500);
+        }, 2000);
     } catch (err) {
         showRecoverMessage(err.message, "error");
     } finally {
-        if (btn) { btn.disabled = false; btn.textContent = "Alterar palavra-passe"; }
+        if (btn) { btn.disabled = false; btn.textContent = "Guardar Nova Palavra-passe"; }
     }
 }
 
@@ -5507,13 +5516,13 @@ function setupNavDropdowns() {
 function applyDefaultTheme() {
     const saved = localStorage.getItem(STORAGE.theme);
 
-    // Se nunca foi escolhido → aplica light
+    // Se nunca foi escolhido → aplica o tema escuro (dark)
     if (!saved) {
-        document.body.classList.add("light-mode");
-        localStorage.setItem(STORAGE.theme, "light");
+        document.body.classList.remove("light-mode");
+        localStorage.setItem(STORAGE.theme, "dark");
 
         const toggle = $("themeToggle");
-        if (toggle) toggle.textContent = "☀️";
+        if (toggle) toggle.textContent = "🌙";
     }
 }
 
@@ -5642,6 +5651,10 @@ async function boot() {
         if (s) s.style.display = "none";
     }
 
+    // ✅ ADICIONA ESTA LINHA AQUI:
+    try { checkResetTokenInURL(); } 
+    catch (e) { console.error("Erro checkResetTokenInURL:", e); }
+
     // 4) Sync servidor + re-render
     try {
         const syncPromise = syncFromServer();
@@ -5668,8 +5681,31 @@ async function boot() {
     } catch (err) {
         console.warn("⚠️ Sync falhou ou timeout — a usar dados locais:", err.message);
     }
+    // 🛡️ Força o redesenho completo quando o browser termina de carregar todos os recursos (imagens, etc)
+    window.addEventListener("load", () => {
+        safeCall("renderProducts (onload)", renderProducts);
+        safeCall("renderGames (onload)", renderGames);
+        safeCall("renderSoftware (onload)", renderSoftware);
+        safeCall("loadHeroImage (onload)", loadHeroImage);
+        safeCall("loadOwnerPhoto (onload)", loadOwnerPhoto);
+        safeCall("renderCarousel (onload)", renderCarousel);
+    });
     // 🛡️ Fallback: se em 2s ainda houver .reveal escondidos, força-os visíveis
     startRevealFallback();
+}
+
+function checkResetTokenInURL() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get("resetToken");
+    
+    if (token) {
+        // O utilizador clicou no link do email
+        openModal("recoverModal");
+        $("recoverStep1").classList.remove("active");
+        $("recoverStep2").classList.add("active");
+        setText("recoverTitle", "Criar Nova Palavra-passe");
+        setText("recoverSubtitle", "Escolhe uma palavra-passe forte.");
+    }
 }
 
 if (document.readyState === "loading") {
