@@ -99,10 +99,10 @@ const DEFAULT_SOFTWARE = [
 ];
 
 const DEFAULT_SERVICES = [
-    { id: 301, name: "Reparação", description: "Diagnóstico e reparação de problemas.", price: 15000, icon: "🔧" },
-    { id: 302, name: "Otimização", description: "Melhoria de desempenho do computador.", price: 10000, icon: "⚡" },
-    { id: 303, name: "Manutenção", description: "Limpeza e manutenção preventiva.", price: 8000, icon: "🧹" },
-    { id: 304, name: "Upgrade", description: "Atualização de componentes.", price: 20000, icon: "⬆️" }
+    { id: 1001, name: "Reparação", description: "Diagnóstico e reparação de problemas.", price: 15000, icon: "🔧" },
+    { id: 1002, name: "Otimização", description: "Melhoria de desempenho do computador.", price: 10000, icon: "⚡" },
+    { id: 1003, name: "Manutenção", description: "Limpeza e manutenção preventiva.", price: 8000, icon: "🧹" },
+    { id: 1004, name: "Upgrade", description: "Atualização de componentes.", price: 20000, icon: "⬆️" }
 ];
 
 const DEFAULT_CAROUSEL = [
@@ -1046,10 +1046,17 @@ function updateFavoritesCount() {
 }
 
 function addToCart(id, type = "product") {
-    const product = findAnyItemById(id);
+    // Procura o item no array correto com base no "type"
+    let product;
+    if (type === "product") product = products.find(p => p.id === id);
+    else if (type === "game") product = games.find(g => g.id === id);
+    else if (type === "software") product = software.find(s => s.id === id);
+    else if (type === "service") product = services.find(sv => sv.id === id);
+    
     if (!product) return;
 
-    const existing = cart.find(item => item.id === id);
+    // Procura no carrinho se já existe (verificando id E tipo)
+    const existing = cart.find(item => item.id === id && item.type === type);
     const qtyInCart = existing ? existing.quantity : 0;
 
     // 🛡️ Verificação de stock (só para produtos com stock definido)
@@ -1093,7 +1100,8 @@ function renderCart() {
     } else {
         empty.classList.remove("active");
         footer.style.display = "block";
-        container.innerHTML = cart.map(item => `
+        // 🆕 Usamos (item, index) para garantir que os botões funcionam no item certo
+        container.innerHTML = cart.map((item, index) => `
             <div class="cart-item">
                 <div class="cart-item-image">
                     ${item.image
@@ -1104,12 +1112,12 @@ function renderCart() {
                     <h4>${escapeHtml(item.name)}</h4>
                     <span>${formatKz(item.price)}</span>
                     <div class="cart-quantity">
-                        <button data-cart-minus="${item.id}">−</button>
+                        <button data-cart-minus="${index}">−</button>
                         <strong>${item.quantity}</strong>
-                        <button data-cart-plus="${item.id}">+</button>
+                        <button data-cart-plus="${index}">+</button>
                     </div>
                 </div>
-                <button class="cart-remove" data-cart-remove="${item.id}">Remover</button>
+                <button class="cart-remove" data-cart-remove="${index}">Remover</button>
             </div>
         `).join("");
     }
@@ -1139,8 +1147,8 @@ function setupCartControls() {
     $("continueShopping")?.addEventListener("click", closeCart);
 }
 
-function changeQuantity(id, amount) {
-    const item = cart.find(p => p.id === id);
+function changeQuantity(index, amount) {
+    const item = cart[index];
     if (!item) return;
 
     // 🛡️ Bloqueia "+" acima do stock disponível
@@ -1151,15 +1159,15 @@ function changeQuantity(id, amount) {
     }
 
     item.quantity += amount;
-    if (item.quantity <= 0) return removeFromCart(id);
+    if (item.quantity <= 0) return removeFromCart(index); 
     saveData(STORAGE.cart, cart);
     renderCart();
 }
 
-function removeFromCart(id) {
-    const item = cart.find(p => p.id === id);
+function removeFromCart(index) {
+    const item = cart[index];
     if (!item) return;
-    cart = cart.filter(p => p.id !== id);
+    cart = cart.filter((_, i) => i !== index);
     saveData(STORAGE.cart, cart);
     renderCart();
     showToast("Produto removido", `${item.name} saiu do carrinho.`);

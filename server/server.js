@@ -457,6 +457,17 @@ app.get("/api/store", async (req, res) => {
     catch (err) { res.status(500).json({ error: "Erro." }); }
 });
 
+// ✅ ROTA QUE FALTAVA: Ir buscar os comentários à base de dados
+app.get("/api/comments", async (req, res) => {
+    try {
+        const comments = await getComments();
+        res.json(comments);
+    } catch (err) {
+        console.error("Erro ao ler comentários:", err);
+        res.status(500).json({ error: "Erro ao ler comentários." });
+    }
+});
+
 app.post("/api/store", async (req, res) => {
     try {
         const { key, value } = req.body;
