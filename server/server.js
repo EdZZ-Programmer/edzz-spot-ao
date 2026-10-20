@@ -46,17 +46,20 @@ function getPersistentSecret() {
 }
 const JWT_SECRET = getPersistentSecret();
 
-// ✉️ Configuração do Carteiro (Ethereal para Testes)
+// ✉️ Configuração do Carteiro (Resend para Produção)
 let transporter;
+
 async function setupEmailTransporter() {
-    let testAccount = await nodemailer.createTestAccount();
     transporter = nodemailer.createTransport({
-        host: "smtp.ethereal.email",
-        port: 587,
-        secure: false,
-        auth: { user: testAccount.user, pass: testAccount.pass },
+        host: process.env.EMAIL_HOST || "smtp.resend.com",
+        port: Number(process.env.EMAIL_PORT) || 465,
+        secure: true, // true para a porta 465
+        auth: {
+            user: process.env.EMAIL_USER || "resend",
+            pass: process.env.EMAIL_PASS, // Chave API do Resend
+        },
     });
-    console.log("📬 Serviço de Email (Teste) configurado.");
+    console.log("📬 Serviço de Email configurado.");
 }
 setupEmailTransporter();
 
@@ -302,9 +305,12 @@ app.post("/api/auth/forgot-password", async (req, res) => {
         tokens[token] = { userId: user.id, expires: Date.now() + 15 * 60 * 1000 };
         saveResetTokens(tokens);
 
-        const resetLink = `http://localhost:3000/?resetToken=${token}`;
+        const resetLink = `https://edzz-spot-ao.pages.dev/?resetToken=${token}`;
         const info = await transporter.sendMail({
-            from: '"EdZZ-Spot AO" <suporte@edzzspot.ao>', to: user.email,
+            // Atenção: O Resend obriga a usar este email no plano gratuito 
+            // (a não ser que configures um domínio próprio).
+            from: '"EdZZ-Spot AO" <onboarding@resend.dev>', 
+            to: user.email,
             subject: "Recuperação de Palavra-passe", html: `<p>Olá ${user.name},</p><p><a href="${resetLink}">Clica aqui para redefinir a password</a>. Expira em 15 min.</p>`
         });
         res.json({ ok: true, testUrl: nodemailer.getTestMessageUrl(info) });
