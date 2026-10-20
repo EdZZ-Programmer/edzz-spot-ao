@@ -306,13 +306,11 @@ function safeCall(name, fn) {
 ========================================================== */
 async function syncFromServer() {
     try {
-        const res = await fetch(window.location.origin + "/api/store");
+        const res = await fetch(API_URL + "/api/store"); // <-- Usar API_URL
         if (!res.ok) throw new Error("Servidor devolveu " + res.status);
 
         const store = await res.json() || {};
 
-        // Só substitui se o servidor tiver dados REAIS (não array vazio).
-        // Se a chave não existir → servidor nunca foi configurado → mantém default.
         if (Array.isArray(store.products) && store.products.length > 0) products       = store.products;
         if (Array.isArray(store.games)    && store.games.length > 0)    games          = store.games;
         if (Array.isArray(store.software) && store.software.length > 0) software       = store.software;
@@ -335,7 +333,7 @@ async function syncFromServer() {
 }
 
 function pushToServer(key, value) {
-    fetch(window.location.origin + "/api/store", {
+    fetch(API_URL + "/api/store", { // <-- Usar API_URL
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key, value })
@@ -1622,7 +1620,7 @@ function setupCheckout() {
             orders.push(order);
             saveData(STORAGE.orders, orders);
 
-            fetch("/api/orders", {
+            fetch(API_URL + "/api/orders", { 
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(order)
@@ -2631,12 +2629,12 @@ function renderAdmin() { loadAdminDataFromServer(); }
 
 async function loadAdminDataFromServer() {
     try {
-        const ordersRes = await fetch("/api/orders");
+        const ordersRes = await fetch(API_URL + "/api/orders");
         const ordersFromServer = ordersRes.ok ? await ordersRes.json() : [];
 
         let clients = [];
         try {
-            const usersRes = await fetch("/api/users", {
+            const usersRes = await fetch(API_URL + "/api/users", {
                 headers: { "Authorization": `Bearer ${authToken}` }
             });
             const users = usersRes.ok ? await usersRes.json() : [];
@@ -2952,7 +2950,7 @@ async function loadClients() {
     list.innerHTML = `<div class="admin-list-item"><div><h4>A carregar...</h4></div></div>`;
 
     try {
-        const res = await fetch("/api/users", {
+        const res = await fetch(API_URL + "/api/users", {
             headers: { "Authorization": `Bearer ${authToken}` }
         });
         if (!res.ok) throw new Error("Sem permissão.");
@@ -3033,7 +3031,7 @@ function setupClientsAdmin() {
             return showToast("Erro", "A senha precisa de pelo menos 6 caracteres.");
         }
         try {
-            const res = await fetch("/api/auth/admin-reset", {
+            const res = await fetch(API_URL + "/api/auth/admin-reset", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -3063,7 +3061,7 @@ async function loadLogins() {
     list.innerHTML = `<div class="admin-list-item"><div><h4>A carregar...</h4></div></div>`;
 
     try {
-        const res = await fetch("/api/logins", {
+        const res = await fetch(API_URL + "/api/logins", {
             headers: { "Authorization": `Bearer ${authToken}` }
         });
         if (!res.ok) throw new Error("Sem permissão.");
@@ -3125,7 +3123,7 @@ async function loadInvoices() {
     list.innerHTML = `<div class="admin-list-item"><div><h4>A carregar...</h4></div></div>`;
 
     try {
-        const res = await fetch("/api/invoices", {
+        const res = await fetch(API_URL + "/api/invoices", {
             headers: { "Authorization": `Bearer ${authToken}` }
         });
         if (!res.ok) throw new Error("Sem permissão.");
@@ -3768,7 +3766,7 @@ function deleteCarousel(id) {
 ========================================================== */
 async function fetchOrders() {
     try {
-        const res = await fetch("/api/orders");
+        const res = await fetch(API_URL + "/api/orders");
         if (!res.ok) return null;
         return await res.json();
     } catch { return null; }
@@ -4417,7 +4415,7 @@ function stopCarousel() {
 ========================================================== */
 async function loadCommentsFromServer() {
     try {
-        const res = await fetch("/api/comments");
+        const res = await fetch(API_URL + "/api/comments");
         if (!res.ok) throw new Error("Erro");
         comments = await res.json();
         return true;
@@ -5325,7 +5323,7 @@ async function loadMyOrders() {
     `;
 
     try {
-        const res = await fetch("/api/my-invoices", {
+        const res = await fetch(API_URL + "/api/logins", {
             headers: { "Authorization": `Bearer ${authToken}` }
         });
 
