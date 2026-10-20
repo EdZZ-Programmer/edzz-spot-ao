@@ -2180,7 +2180,7 @@ function setupAppointment() {
 // Se estiveres em localhost, usa o local. Se estiveres online, usa o Render.
 const API_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
     ? window.location.origin 
-    : "https://yyradubreritxypzjcru.supabase.co"; 
+    : "https://edzzspot-api.onrender.com"; 
 
 async function apiRequest(endpoint, options = {}) {
     const res = await fetch(API_URL + endpoint, {
