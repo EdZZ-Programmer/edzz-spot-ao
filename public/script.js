@@ -670,6 +670,58 @@ function buildDynamicFilterOptions() {
     }
 }
 
+/* ==========================================================
+   ⭐ AVALIAÇÕES POR PRODUTO — helpers
+========================================================== */
+
+/** Devolve array de reviews para um produto específico */
+function getProductReviews(productId, productType) {
+    if (!Array.isArray(comments)) return [];
+    return comments.filter(c =>
+        c.productId === productId &&
+        (!productType || c.productType === productType)
+    );
+}
+
+/** Devolve { avg, count } ou null se não houver reviews */
+function getProductRating(productId, productType) {
+    const reviews = getProductReviews(productId, productType);
+    if (!reviews.length) return null;
+    const sum = reviews.reduce((s, r) => s + (Number(r.rating) || 0), 0);
+    return {
+        avg: sum / reviews.length,
+        count: reviews.length
+    };
+}
+
+/** "★★★★☆" a partir de um número 0-5 */
+function starString(rating) {
+    const n = Math.max(0, Math.min(5, Math.round(Number(rating) || 0)));
+    return "★".repeat(n) + "☆".repeat(5 - n);
+}
+
+/** Badge pequeno para os cards do catálogo */
+function ratingBadgeHTML(productId, productType) {
+    const r = getProductRating(productId, productType);
+    if (!r) {
+        return `<span class="product-rating-empty">Sem avaliações</span>`;
+    }
+    return `
+        <div class="product-rating-badge">
+            <span class="product-rating-stars">${starString(r.avg)}</span>
+            <span class="product-rating-text">${r.avg.toFixed(1)} (${r.count})</span>
+        </div>
+    `;
+}
+
+/** Re-renderiza todos os cards com ratings atualizados */
+function refreshAllRatings() {
+    safeCall("renderProducts (rating)", renderProducts);
+    safeCall("renderAccessories (rating)", renderAccessories);
+    safeCall("renderGames (rating)", renderGames);
+    safeCall("renderSoftware (rating)", renderSoftware);
+}
+
 /* Retorna o HTML do badge de stock conforme a quantidade */
 function stockBadgeHTML(product) {
     const stock = Number(product.stock ?? 0);
@@ -701,6 +753,7 @@ function productCardTemplate(product) {
             <div class="product-info">
                 <span class="product-category">${getCategoryName(product.category)}</span>
                 <h3>${escapeHtml(product.name)}</h3>
+                ${ratingBadgeHTML(product.id, "product")}
                 <p class="product-description">${escapeHtml(product.description)}</p>
                 <div class="product-specs">
                     <span class="spec">${escapeHtml(product.processor)}</span>
@@ -874,14 +927,16 @@ function openSoftware(id) {
                     <button class="btn btn-primary" data-modal-add-software="${sw.id}">
                         Adicionar ao carrinho →
                     </button>
-                    <button class="btn btn-secondary" data-favorite="${sw.id}" type="button">
+                                        <button class="btn btn-secondary" data-favorite="${sw.id}" type="button">
                         ${favorite ? "♥ Nos favoritos" : "♡ Guardar"}
                     </button>
                 </div>
             </div>
         </div>
+        <div class="product-reviews" id="productReviews"></div>
     `;
     openModal("productModal");
+    renderProductReviews(sw.id, "software");
 }
 
 function openGame(id) {
@@ -917,14 +972,16 @@ function openGame(id) {
                     <button class="btn btn-primary" data-modal-add-game="${game.id}">
                         Adicionar ao carrinho →
                     </button>
-                    <button class="btn btn-secondary" data-favorite="${game.id}" type="button">
+                                        <button class="btn btn-secondary" data-favorite="${game.id}" type="button">
                         ${favorite ? "♥ Nos favoritos" : "♡ Guardar"}
                     </button>
                 </div>
             </div>
         </div>
+        <div class="product-reviews" id="productReviews"></div>
     `;
     openModal("productModal");
+    renderProductReviews(game.id, "game");
 }
 
 function openProduct(id) {
@@ -951,11 +1008,13 @@ function openProduct(id) {
                     <div class="detail-spec"><strong>Armazenamento</strong><br>${escapeHtml(product.storage)}</div>
                     <div class="detail-spec"><strong>Gráficos</strong><br>${escapeHtml(product.gpu)}</div>
                 </div>
-                <button class="btn btn-primary" data-modal-add="${product.id}">Adicionar ao carrinho →</button>
+                                <button class="btn btn-primary" data-modal-add="${product.id}">Adicionar ao carrinho →</button>
             </div>
         </div>
+        <div class="product-reviews" id="productReviews"></div>
     `;
     openModal("productModal");
+    renderProductReviews(product.id, "product");
 }
 
 /* ==========================================================
@@ -1893,6 +1952,7 @@ function accessoryCardTemplate(product) {
             <div class="product-info">
                 <span class="product-category">${subLabel}</span>
                 <h3>${escapeHtml(product.name)}</h3>
+                ${ratingBadgeHTML(product.id, "product")}
                 <p class="product-description">${escapeHtml(product.description)}</p>
 
                 <div class="product-bottom">
@@ -2420,7 +2480,8 @@ async function handleRecoverStep2(e) {
 ========================================================== */
 const adminSearchQueries = {
     products: "", services: "", games: "", software: "",
-    carousel: "", orders: "", invoices: "", clients: "", logins: ""
+    carousel: "", orders: "", invoices: "", clients: "", logins: "",
+    reviews: ""
 };
 
 // Cache dos dados que vêm do servidor (para filtrar sem re-fetch)
@@ -2479,6 +2540,7 @@ function rerenderAdminPanel(key) {
             case "invoices":  renderInvoicesList();        break;
             case "clients":   renderClientsList();         break;
             case "logins":    renderLoginsList();          break;
+            case "reviews":   renderReviewsList();         break;
         }
     } catch (err) {
         console.error("Erro rerenderAdminPanel:", err);
@@ -2540,6 +2602,7 @@ function setupAdminTabs() {
             if (key === "software") loadAdminDataFromServer();
             if (key === "carousel") loadAdminDataFromServer();
             if (key === "payments") renderPaymentSettingsForm();
+            if (key === "reviews") loadReviews();
         });
     });
 }
@@ -4075,6 +4138,7 @@ function renderGames() {
                                aria-label="Favorito">${favorite ? "♥" : "♡"}</button>
                    </div>`}
             <h3>${escapeHtml(g.name)}</h3>
+            ${ratingBadgeHTML(g.id, "game")}
             <p>${escapeHtml(g.description)}</p>
             <div class="card-bottom">
                 <strong class="card-price">${formatKz(g.price)}</strong>
@@ -4116,6 +4180,7 @@ function renderSoftware() {
                                aria-label="Favorito">${favorite ? "♥" : "♡"}</button>
                    </div>`}
             <h3>${escapeHtml(s.name)}</h3>
+            ${ratingBadgeHTML(s.id, "software")}
             <p>${escapeHtml(s.description)}</p>
             <div class="card-bottom">
                 <strong class="card-price">${formatKz(s.price)}</strong>
@@ -4444,6 +4509,424 @@ async function renderComments() {
 
     list.querySelectorAll("[data-delete-comment]").forEach(btn => {
         btn.addEventListener("click", () => deleteComment(Number(btn.dataset.deleteComment)));
+    });
+}
+
+/* ==========================================================
+   ⭐ RENDER DE REVIEWS NO MODAL DO PRODUTO
+========================================================== */
+function renderProductReviews(productId, productType) {
+    const box = $("productReviews");
+    if (!box) return;
+
+    const reviews = getProductReviews(productId, productType);
+    const rating  = getProductRating(productId, productType);
+
+    let html = `
+        <div class="product-reviews-header">
+            <h3>⭐ Avaliações
+                <span class="product-reviews-count">(${reviews.length})</span>
+            </h3>
+        </div>
+    `;
+
+    /* ---------- Resumo com distribuição ---------- */
+    if (reviews.length) {
+        const dist = [5, 4, 3, 2, 1].map(star => ({
+            star,
+            count: reviews.filter(r => Number(r.rating) === star).length
+        }));
+
+        html += `
+            <div class="product-reviews-summary">
+                <div class="product-reviews-score">
+                    <strong>${rating.avg.toFixed(1)}</strong>
+                    <span class="product-reviews-stars-big">${starString(rating.avg)}</span>
+                    <small>${reviews.length} ${reviews.length === 1 ? "avaliação" : "avaliações"}</small>
+                </div>
+                <div class="product-reviews-distribution">
+                    ${dist.map(d => {
+                        const pct = Math.round((d.count / reviews.length) * 100);
+                        return `
+                            <div class="product-reviews-bar">
+                                <span class="product-reviews-bar-label">${d.star}★</span>
+                                <div class="product-reviews-bar-track">
+                                    <div class="product-reviews-bar-fill" style="width:${pct}%"></div>
+                                </div>
+                                <span class="product-reviews-bar-count">${d.count}</span>
+                            </div>
+                        `;
+                    }).join("")}
+                </div>
+            </div>
+        `;
+    }
+
+    /* ---------- Form (se autenticado) ---------- */
+    if (currentUser) {
+        const jaAvaliou = reviews.some(r => r.userId === currentUser.id);
+
+        if (jaAvaliou) {
+            html += `
+                <div class="product-review-alert">
+                    ✅ Já avaliaste este produto. Obrigado!
+                </div>
+            `;
+        } else {
+            html += `
+                <form class="product-review-form" id="productReviewForm">
+                    <h4>Deixa a tua avaliação</h4>
+                    <div class="star-rating" id="productReviewRating">
+                        <span data-star="1">★</span>
+                        <span data-star="2">★</span>
+                        <span data-star="3">★</span>
+                        <span data-star="4">★</span>
+                        <span data-star="5">★</span>
+                    </div>
+                    <input type="hidden" id="productReviewRatingValue" value="5">
+                    <textarea id="productReviewText" rows="3" maxlength="500"
+                              placeholder="Conta-nos a tua experiência com este produto..."
+                              required></textarea>
+                    <button type="submit" class="btn btn-primary">Publicar avaliação →</button>
+                </form>
+            `;
+        }
+    } else {
+        html += `
+            <div class="product-review-alert product-review-alert--guest">
+                <span>🔒 <strong>Faz login</strong> para deixar a tua avaliação.</span>
+                <button type="button" id="productReviewLogin" class="btn btn-primary">Entrar</button>
+            </div>
+        `;
+    }
+
+    /* ---------- Lista de reviews ---------- */
+    if (reviews.length) {
+        html += `<div class="product-reviews-list">`;
+        html += [...reviews].reverse().map(r => {
+            const initial = String(r.name || "?").trim().charAt(0).toUpperCase() || "?";
+            const canDelete = currentUser && (currentUser.id === r.userId || currentUser.role === "admin");
+            return `
+                <div class="product-review-item">
+                    <div class="product-review-head">
+                        <div class="product-review-author">
+                            <div class="product-review-avatar">${escapeHtml(initial)}</div>
+                            <div>
+                                <strong>${escapeHtml(r.name)}</strong>
+                                <small>${new Date(r.date).toLocaleDateString("pt-AO")}</small>
+                            </div>
+                        </div>
+                        <div class="product-review-actions">
+                            <span class="product-review-stars">${starString(r.rating)}</span>
+                            ${canDelete ? `<button type="button" class="product-review-delete" data-delete-review="${r.id}" aria-label="Eliminar">×</button>` : ""}
+                        </div>
+                    </div>
+                    <p class="product-review-text">${escapeHtml(r.text)}</p>
+                </div>
+            `;
+        }).join("");
+        html += `</div>`;
+    } else {
+        html += `<div class="product-reviews-empty">Ainda não há avaliações deste produto. Sê o primeiro!</div>`;
+    }
+
+    box.innerHTML = html;
+
+    /* ---------- Binds ---------- */
+
+    // Estrelas do form
+    const stars = box.querySelectorAll("#productReviewRating span");
+    stars.forEach(s => s.classList.add("active"));
+    stars.forEach(star => {
+        star.addEventListener("click", () => {
+            const v = Number(star.dataset.star);
+            const input = box.querySelector("#productReviewRatingValue");
+            if (input) input.value = v;
+            stars.forEach(s => s.classList.toggle("active", Number(s.dataset.star) <= v));
+        });
+    });
+
+    // Submit
+    const form = box.querySelector("#productReviewForm");
+    if (form) {
+        form.addEventListener("submit", e => {
+            e.preventDefault();
+            submitProductReview(productId, productType, form);
+        });
+    }
+
+    // Botão "Entrar" (guest)
+    box.querySelector("#productReviewLogin")?.addEventListener("click", () => {
+        closeModal("productModal");
+        switchAuthTab("login");
+        openModal("loginModal");
+    });
+
+    // Eliminar review
+    box.querySelectorAll("[data-delete-review]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+            if (!confirm("Eliminar esta avaliação?")) return;
+            try {
+                await fetch(`/api/comments/${btn.dataset.deleteReview}`, { method: "DELETE" });
+                await loadCommentsFromServer();
+                renderProductReviews(productId, productType);
+                refreshAllRatings();
+                showToast("Removida", "Avaliação eliminada.");
+            } catch {
+                showToast("Erro", "Não foi possível remover.");
+            }
+        });
+    });
+}
+
+/* ==========================================================
+   ⭐ SUBMIT DE REVIEW
+========================================================== */
+async function submitProductReview(productId, productType, form) {
+    const text = $("productReviewText")?.value.trim();
+    const rating = Number($("productReviewRatingValue")?.value) || 5;
+
+    if (!text || text.length < 3) {
+        return showToast("Atenção", "Escreve um comentário com pelo menos 3 caracteres.");
+    }
+
+    const btn = form.querySelector('button[type="submit"]');
+    const original = btn?.innerHTML;
+    if (btn) { btn.disabled = true; btn.innerHTML = "⏳ A publicar..."; }
+
+    try {
+        const res = await fetch("/api/comments", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                userId: currentUser.id,
+                name: currentUser.name,
+                rating,
+                text,
+                productId,
+                productType
+            })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Erro ao publicar.");
+
+        await loadCommentsFromServer();
+        renderProductReviews(productId, productType);
+        refreshAllRatings();
+        showToast("✅ Avaliação publicada", "Obrigado pelo teu comentário!");
+    } catch (err) {
+        showToast("Erro", err.message);
+        if (btn) { btn.disabled = false; btn.innerHTML = original; }
+    }
+}
+
+/* ==========================================================
+   ⭐ ADMIN — PAINEL DE AVALIAÇÕES
+========================================================== */
+let currentReviewFilter = "all";
+
+async function loadReviews() {
+    const list = $("adminReviewsList");
+    if (!list) return;
+    list.innerHTML = `<div class="admin-list-item"><div><h4>A carregar...</h4></div></div>`;
+
+    try {
+        await loadCommentsFromServer();
+        adminCache.reviews = Array.isArray(comments) ? comments : [];
+        renderReviewsStats();
+        renderReviewsList();
+    } catch (err) {
+        list.innerHTML = `<div class="admin-list-item"><div><h4>Erro</h4><p>${escapeHtml(err.message)}</p></div></div>`;
+    }
+}
+
+function renderReviewsStats() {
+    const box = $("adminReviewsStats");
+    if (!box) return;
+
+    const all = adminCache.reviews || [];
+    if (!all.length) {
+        box.innerHTML = "";
+        return;
+    }
+
+    const productReviews = all.filter(r => r.productId);
+    const siteReviews = all.filter(r => !r.productId);
+    const avg = all.reduce((s, r) => s + (Number(r.rating) || 0), 0) / all.length;
+    const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
+    const thisWeek = all.filter(r => new Date(r.date).getTime() > weekAgo).length;
+
+    box.innerHTML = `
+        <div class="admin-review-stat">
+            <span>⭐</span>
+            <strong>${avg.toFixed(1)}</strong>
+            <small>Média</small>
+        </div>
+        <div class="admin-review-stat">
+            <span>📝</span>
+            <strong>${all.length}</strong>
+            <small>Total</small>
+        </div>
+        <div class="admin-review-stat">
+            <span>💻</span>
+            <strong>${productReviews.length}</strong>
+            <small>Produtos</small>
+        </div>
+        <div class="admin-review-stat">
+            <span>🌐</span>
+            <strong>${siteReviews.length}</strong>
+            <small>Site</small>
+        </div>
+        <div class="admin-review-stat">
+            <span>📅</span>
+            <strong>${thisWeek}</strong>
+            <small>Esta semana</small>
+        </div>
+    `;
+}
+
+function renderReviewsList() {
+    const list = $("adminReviewsList");
+    if (!list) return;
+
+    const q = adminSearchQueries.reviews;
+    const all = adminCache.reviews || [];
+    const filter = currentReviewFilter;
+
+    let filtered = all;
+
+    /* Filtros */
+    if (filter === "product") {
+        filtered = filtered.filter(r => r.productId);
+    } else if (filter === "site") {
+        filtered = filtered.filter(r => !r.productId);
+    } else if (["1","2","3","4","5"].includes(filter)) {
+        filtered = filtered.filter(r => Number(r.rating) === Number(filter));
+    }
+
+    /* Pesquisa */
+    if (q && q.trim()) {
+        const ql = q.toLowerCase().trim();
+        filtered = filtered.filter(r => {
+            const product = r.productId ? findAnyItemById(r.productId) : null;
+            const productName = product ? product.name : "";
+            return [
+                r.name, r.text, r.rating,
+                productName,
+                r.productType || "",
+                new Date(r.date).toLocaleDateString("pt-AO")
+            ].some(v => String(v || "").toLowerCase().includes(ql));
+        });
+    }
+
+    /* Ordenar — mais recentes primeiro */
+    filtered = [...filtered].sort((a, b) =>
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    /* Estados vazios */
+    if (!all.length) {
+        list.innerHTML = `
+            <div class="admin-list-item">
+                <div>
+                    <h4>Nenhuma avaliação ainda.</h4>
+                    <p>As avaliações dos clientes aparecerão aqui.</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    if (!filtered.length) {
+        list.innerHTML = q
+            ? adminEmptySearch(q)
+            : `<div class="admin-empty-search"><strong>Nenhuma avaliação neste filtro</strong>Tenta outro filtro.</div>`;
+        return;
+    }
+
+    list.innerHTML = filtered.map(r => {
+        const product = r.productId ? findAnyItemById(r.productId) : null;
+        const productLabel = product
+            ? `<span class="admin-review-product">${escapeHtml(product.name)}</span>`
+            : `<span class="admin-review-product admin-review-product--site">🌐 Site</span>`;
+
+        const typeIcon = r.productType === "game" ? "🎮"
+                       : r.productType === "software" ? "📊"
+                       : r.productId ? "💻" : "🌐";
+
+        return `
+            <div class="admin-list-item">
+                <div class="admin-item-info">
+                    <div class="admin-item-icon">
+                        <span style="font-size:1.4rem;">${typeIcon}</span>
+                    </div>
+                    <div style="min-width:0;flex:1;">
+                        <h4>
+                            ${escapeHtml(r.name)}
+                            <span class="admin-review-stars">${starString(r.rating)}</span>
+                        </h4>
+                        <p class="admin-review-text">${escapeHtml(r.text)}</p>
+                        <p style="font-size:.72rem;margin-top:6px;">
+                            ${productLabel}
+                            • ${new Date(r.date).toLocaleString("pt-AO")}
+                        </p>
+                    </div>
+                </div>
+                <div class="admin-item-actions">
+                    <button class="admin-delete" data-delete-admin-review="${r.id}">
+                        Eliminar
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join("") + adminResultsBadge(filtered.length, q, all.length);
+
+    /* Bind deletes */
+    list.querySelectorAll("[data-delete-admin-review]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+            const id = Number(btn.dataset.deleteAdminReview);
+            const review = all.find(x => x.id === id);
+            if (!review) return;
+            if (!confirm(`Eliminar a avaliação de "${review.name}"?`)) return;
+
+            btn.disabled = true;
+            btn.textContent = "A eliminar...";
+
+            try {
+                const res = await fetch(`/api/comments/${id}`, { method: "DELETE" });
+                if (!res.ok) throw new Error("Erro ao eliminar.");
+
+                adminCache.reviews = adminCache.reviews.filter(x => x.id !== id);
+                comments = comments.filter(x => x.id !== id);
+                renderReviewsStats();
+                renderReviewsList();
+                refreshAllRatings();
+                showToast("✅ Eliminada", "Avaliação removida.");
+            } catch (err) {
+                showToast("Erro", err.message);
+                btn.disabled = false;
+                btn.textContent = "Eliminar";
+            }
+        });
+    });
+}
+
+function setupReviewsAdmin() {
+    /* Botão refresh */
+    $("refreshReviews")?.addEventListener("click", () => {
+        loadReviews();
+        showToast("Avaliações", "Lista atualizada.");
+    });
+
+    /* Filtros de tipo e estrelas */
+    document.querySelectorAll(".review-filter").forEach(btn => {
+        btn.addEventListener("click", () => {
+            document.querySelectorAll(".review-filter").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            currentReviewFilter = btn.dataset.reviewFilter;
+            renderReviewsList();
+        });
     });
 }
 
@@ -5072,6 +5555,7 @@ function initialize() {
     safeCall("setupContact", setupContact);
     safeCall("setupToastClose", setupToastClose);
     safeCall("setupClientsAdmin", setupClientsAdmin);
+    safeCall("setupReviewsAdmin", setupReviewsAdmin);
     safeCall("setupResetButton", setupResetButton);
     safeCall("applyDefaultTheme", applyDefaultTheme);
     safeCall("setupNavDropdowns", setupNavDropdowns);
@@ -5169,6 +5653,9 @@ async function boot() {
 
         // 🛡️ Safety net: se algo estiver vazio, restaura defaults
         safeCall("ensureDefaults", ensureDefaults);
+
+        // ⭐ Carregar comentários para mostrar ratings nos cards
+        try { await loadCommentsFromServer(); } catch {}
 
         safeCall("renderProducts (sync)", renderProducts);
         safeCall("renderGames (sync)", renderGames);

@@ -1,6 +1,4 @@
-/* ==========================================================
-   EDZZ-SPOT AO — SERVIDOR
-========================================================== */
+require("dotenv").config();
 
 const express = require("express");
 const path = require("path");
@@ -9,9 +7,17 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const os = require("os");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
+const cors = require("cors");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const NODE_ENV = process.env.NODE_ENV || "development";
+const IS_PROD = NODE_ENV === "production";
+
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
+const DEV_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"];
 
 /* ----------------------------------------------------------
    CONFIGURAÇÃO
@@ -131,24 +137,65 @@ function registerLogin({ email, name, role, ip, userAgent, success }) {
 }
 
 /* ----------------------------------------------------------
-   MIDDLEWARES
+   MIDDLEWARES DE SEGURANÇA
 ---------------------------------------------------------- */
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
+// 1) HELMET — Protege os headers HTTP (XSS, Clickjacking, etc.)
+app.use(helmet({
+    contentSecurityPolicy: false, // Desativado para não bloquear o Chart.js
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+app.disable("x-powered-by"); // Esconde que usas Express
+
+// 2) CORS — Só aceita pedidos do teu próprio site
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        const allowed = IS_PROD ? ALLOWED_ORIGINS : [...ALLOWED_ORIGINS, ...DEV_ORIGINS];
+        
+        // Permite túneis Cloudflare em desenvolvimento
+        if (!IS_PROD && origin.includes(".trycloudflare.com")) return callback(null, true);
+        
+        if (allowed.includes(origin)) return callback(null, true);
+        return callback(new Error("Origem não permitida pelo CORS."));
+    },
+    credentials: true
+}));
+
+// 3) TRUST PROXY — Necessário para o Rate Limit funcionar atrás do Cloudflare
+app.set("trust proxy", 1);
+
+// 4) RATE LIMITING — Proteção contra Brute Force e Spam
+const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, max: 500, // 500 pedidos / 15 min
+    message: { error: "Demasiados pedidos. Tenta daqui a 15 minutos." }
+});
+app.use("/api/", globalLimiter);
+
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, max: 10, // 10 tentativas de login / 15 min
+    skipSuccessfulRequests: true,
+    message: { error: "Demasiadas tentativas de login. Tenta daqui a 15 minutos." }
+});
+app.use("/api/auth/login", loginLimiter);
+
+// 5) BODY PARSERS (Reduzido de 50mb para 2mb para evitar DOS)
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true, limit: "2mb" }));
+
+// 6) LOGGER (Agora mostra o IP)
 app.use((req, res, next) => {
     const time = new Date().toLocaleTimeString("pt-PT");
-    console.log(`[${time}] ${req.method} ${req.url}`);
+    console.log(`[${time}] ${req.method} ${req.url} — IP: ${req.ip}`);
     next();
 });
 
-// 🛡️ Cache-control: HTML, CSS, JS nunca em cache; imagens sim
+// 7) STATIC FILES
 app.use(express.static(path.join(__dirname, "..", "public"), {
     setHeaders: (res, filePath) => {
         if (/\.(html|css|js)$/.test(filePath)) {
             res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-            res.setHeader("Pragma", "no-cache");
-            res.setHeader("Expires", "0");
         }
     }
 }));
@@ -706,6 +753,28 @@ app.patch("/api/orders/:id/status", (req, res) => {
         console.log("👑 Conta admin criada: admin@edzzspot.ao / EdZZ@1234");
     }
 })();
+
+/* ----------------------------------------------------------
+   TRATAMENTO GLOBAL DE ERROS
+   (Impede que o servidor caia e esconde "stack traces" em produção)
+---------------------------------------------------------- */
+app.use((err, req, res, next) => {
+    console.error("❌ Erro detetado:", err.message);
+
+    if (err.message === "Origem não permitida pelo CORS.") {
+        return res.status(403).json({ error: "Origem não autorizada." });
+    }
+    if (err.type === "entity.too.large") {
+        return res.status(413).json({ error: "Ficheiro/Pedido demasiado grande." });
+    }
+    if (err.status === 429) {
+        return res.status(429).json({ error: "Demasiados pedidos. Acelera menos!" });
+    }
+
+    res.status(err.status || 500).json({ 
+        error: IS_PROD ? "Erro interno do servidor." : err.message 
+    });
+});
 
 /* ----------------------------------------------------------
    ARRANQUE

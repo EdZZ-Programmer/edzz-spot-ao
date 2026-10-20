@@ -4015,3 +4015,153 @@ body.light-mode .product-review-item {
     .product-review-avatar { width: 36px; height: 36px; font-size: .85rem; }
     .product-review-text { padding-left: 0; margin-top: 8px; }
 }
+
+/* ==========================================================
+   ⭐ ADMIN — PAINEL DE AVALIAÇÕES
+========================================================== */
+
+/* Stats cards no topo */
+.admin-reviews-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.admin-review-stat {
+    padding: 16px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: rgba(255,255,255,.025);
+    text-align: center;
+    transition: var(--tr);
+}
+.admin-review-stat:hover {
+    border-color: var(--primary-border);
+    transform: translateY(-2px);
+}
+.admin-review-stat span {
+    font-size: 1.3rem;
+    display: block;
+    margin-bottom: 4px;
+}
+.admin-review-stat strong {
+    display: block;
+    font-family: Orbitron, sans-serif;
+    font-size: 1.4rem;
+    color: var(--primary);
+    margin-bottom: 2px;
+    line-height: 1.1;
+}
+.admin-review-stat small {
+    color: var(--muted);
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+/* Filtros chips */
+.admin-reviews-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px dashed var(--border);
+}
+.review-filter {
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    background: transparent;
+    color: var(--muted);
+    font-size: .78rem;
+    font-weight: 700;
+    transition: var(--tr);
+    white-space: nowrap;
+    cursor: pointer;
+}
+.review-filter:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-1px);
+}
+.review-filter.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #001018;
+    font-weight: 800;
+}
+.review-filter-sep {
+    width: 1px;
+    height: 22px;
+    background: var(--border);
+    margin: 0 6px;
+}
+
+/* Item de review na lista admin */
+.admin-review-text {
+    color: var(--text) !important;
+    font-size: .85rem !important;
+    line-height: 1.55;
+    margin-top: 6px;
+    padding: 8px 12px;
+    background: rgba(255,255,255,.03);
+    border-radius: 8px;
+    border-left: 3px solid var(--primary);
+    overflow-wrap: anywhere;
+}
+.admin-review-stars {
+    color: #ffc83c;
+    letter-spacing: 1.5px;
+    margin-left: 8px;
+    font-size: .82rem;
+    vertical-align: middle;
+}
+.admin-review-product {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: rgba(0,217,255,.12);
+    color: var(--primary);
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+}
+.admin-review-product--site {
+    background: rgba(124,60,255,.12);
+    color: #b57bff;
+}
+
+/* Light mode */
+body.light-mode .admin-review-stat {
+    background: #ffffff;
+}
+body.light-mode .admin-review-text {
+    background: #f7f9fc;
+    border-left-color: var(--primary);
+}
+body.light-mode .admin-review-product {
+    background: rgba(0,184,212,.12);
+    color: #0097a7;
+}
+body.light-mode .admin-review-product--site {
+    background: rgba(124,60,255,.12);
+    color: #7c3cff;
+}
+
+/* Mobile */
+@media (max-width: 700px) {
+    .admin-reviews-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .admin-review-stat strong { font-size: 1.15rem; }
+    .admin-reviews-filters {
+        gap: 4px;
+    }
+    .review-filter {
+        padding: 6px 10px;
+        font-size: .72rem;
+    }
+}

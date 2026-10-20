@@ -18,3 +18,18 @@ Thumbs.db
 
 # VS Code
 .vscode/
+
+# Ignorar variáveis de ambiente
+server/.env
+.env
+
+# Ignorar base de dados local
+server/data/
+
+# Ignorar node_modules
+node_modules/
+server/node_modules/
+
+# Ignorar ficheiros do sistema
+.DS_Store
+Thumbs.db
