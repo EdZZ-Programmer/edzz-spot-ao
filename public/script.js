@@ -2473,19 +2473,26 @@ async function handleRecoverStep2(e) {
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get("resetToken");
 
+        // Validações no frontend
+        if (!token) throw new Error("Link inválido. Pede um novo email.");
+        if (!newPassword || newPassword.length < 8) throw new Error("A palavra-passe precisa de pelo menos 8 caracteres.");
+
         await apiRequest("/api/auth/reset-password", {
             method: "POST",
             body: JSON.stringify({ token, newPassword })
         });
 
         showRecoverMessage("Palavra-passe alterada com sucesso!", "success");
+        
         setTimeout(() => {
-            window.history.replaceState({}, document.title, window.location.pathname); // Limpa o token do URL
+            // Limpa o token do URL para segurança
+            window.history.replaceState({}, document.title, window.location.pathname); 
             closeModal("recoverModal");
             switchAuthTab("login");
             openModal("loginModal");
             showToast("Sucesso", "Já podes entrar com a nova palavra-passe.");
         }, 2000);
+        
     } catch (err) {
         showRecoverMessage(err.message, "error");
     } finally {
