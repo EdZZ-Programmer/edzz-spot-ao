@@ -295,10 +295,18 @@ app.get("/api/auth/me", async (req, res) => {
 app.post("/api/auth/forgot-password", async (req, res) => {
     try {
         const { email } = req.body;
+        console.log("📩 Pedido de recuperação para:", email);
+        
+        if (!email) return res.status(400).json({ error: "Email obrigatório." });
+
         const users = await getUsers();
         const user = users.find(u => u.email === email.toLowerCase().trim());
 
-        if (!user) return res.json({ ok: true, message: "Se o email existir, receberás um link." });
+        // Se o utilizador não existir, devolvemos sucesso falso (segurança)
+        if (!user) {
+            console.log("⚠️ Email não encontrado na BD:", email);
+            return res.json({ ok: true, message: "Se o email existir, receberás um link." });
+        }
 
         const token = crypto.randomBytes(32).toString("hex");
         const tokens = readResetTokens();
@@ -306,36 +314,24 @@ app.post("/api/auth/forgot-password", async (req, res) => {
         saveResetTokens(tokens);
 
         const resetLink = `https://edzz-spot-ao.pages.dev/?resetToken=${token}`;
-        const info = await transporter.sendMail({
-            // Atenção: O Resend obriga a usar este email no plano gratuito 
-            // (a não ser que configures um domínio próprio).
-            from: '"EdZZ-Spot AO" <onboarding@resend.dev>', 
+        
+        console.log("📤 A enviar email via Resend para:", user.email);
+        
+        await transporter.sendMail({
+            from: '"EdZZ-Spot AO" <onboarding@resend.dev>',
             to: user.email,
-            subject: "Recuperação de Palavra-passe", html: `<p>Olá ${user.name},</p><p><a href="${resetLink}">Clica aqui para redefinir a password</a>. Expira em 15 min.</p>`
+            subject: "Recuperação de Palavra-passe",
+            html: `<p>Olá ${user.name},</p><p><a href="${resetLink}">Clica aqui para redefinir a password</a>. Expira em 15 min.</p>`
         });
+
+        console.log("✅ Email enviado com sucesso para:", user.email);
         res.json({ ok: true, message: "Se o email existir, receberás um link." });
-    } catch (err) { res.status(500).json({ error: "Erro ao enviar o email." }); }
-});
-
-app.post("/api/auth/reset-password", async (req, res) => {
-    try {
-        const { token, newPassword } = req.body;
-        if (!token || newPassword.length < 8) return res.status(400).json({ error: "Dados inválidos." });
-
-        const tokens = readResetTokens();
-        const tokenData = tokens[token];
-        if (!tokenData || tokenData.expires < Date.now()) return res.status(400).json({ error: "Link inválido ou expirado." });
-
-        const users = await getUsers();
-        const user = users.find(u => u.id === tokenData.userId);
-        if (!user) return res.status(404).json({ error: "Utilizador não encontrado." });
-
-        user.passwordHash = await bcrypt.hash(newPassword, 10);
-        await saveUser(user);
-        delete tokens[token];
-        saveResetTokens(tokens);
-        res.json({ ok: true, message: "Palavra-passe alterada!" });
-    } catch (err) { res.status(500).json({ error: "Erro no servidor." }); }
+        
+    } catch (err) { 
+        console.error("❌ ERRO AO ENVIAR EMAIL:", err.message);
+        console.error("Detalhes:", err);
+        res.status(500).json({ error: "Erro ao enviar o email: " + err.message }); 
+    }
 });
 
 /* ==========================================================
