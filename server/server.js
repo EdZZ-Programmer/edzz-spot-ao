@@ -1,3 +1,5 @@
+const { Resend } = require('resend');
+const resend = new Resend(process.env.EMAIL_PASS); // A tua chave API do Resend
 const nodemailer = require("nodemailer");
 require("dotenv").config();
 
@@ -46,22 +48,50 @@ function getPersistentSecret() {
 }
 const JWT_SECRET = getPersistentSecret();
 
-// ✉️ Configuração do Carteiro (Resend para Produção)
-let transporter;
+app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+        const { email } = req.body;
+        console.log("📩 Pedido de recuperação para:", email);
+        
+        if (!email) return res.status(400).json({ error: "Email obrigatório." });
 
-async function setupEmailTransporter() {
-    transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST || "smtp.resend.com",
-        port: Number(process.env.EMAIL_PORT) || 465,
-        secure: true, // true para a porta 465
-        auth: {
-            user: process.env.EMAIL_USER || "resend",
-            pass: process.env.EMAIL_PASS, // Chave API do Resend
-        },
-    });
-    console.log("📬 Serviço de Email configurado.");
-}
-setupEmailTransporter();
+        const users = await getUsers();
+        const user = users.find(u => u.email === email.toLowerCase().trim());
+
+        if (!user) {
+            console.log("⚠️ Email não encontrado na BD:", email);
+            return res.json({ ok: true, message: "Se o email existir, receberás um link." });
+        }
+
+        const token = crypto.randomBytes(32).toString("hex");
+        const tokens = readResetTokens();
+        tokens[token] = { userId: user.id, expires: Date.now() + 15 * 60 * 1000 };
+        saveResetTokens(tokens);
+
+        const resetLink = `https://edzz-spot-ao.pages.dev/?resetToken=${token}`;
+        
+        console.log("📤 A enviar email via Resend API para:", user.email);
+        
+        const { data, error } = await resend.emails.send({
+            from: '"EdZZ-Spot AO" <onboarding@resend.dev>', // Obrigatório no plano grátis
+            to: user.email,
+            subject: "Recuperação de Palavra-passe",
+            html: `<p>Olá ${user.name},</p><p><a href="${resetLink}">Clica aqui para redefinir a password</a>. Expira em 15 min.</p>`
+        });
+
+        if (error) {
+            console.error("❌ Erro do Resend:", error);
+            return res.status(500).json({ error: "Erro ao enviar o email." });
+        }
+
+        console.log("✅ Email enviado com sucesso. ID:", data.id);
+        res.json({ ok: true, message: "Se o email existir, receberás um link." });
+        
+    } catch (err) { 
+        console.error("❌ ERRO AO ENVIAR EMAIL:", err.message);
+        res.status(500).json({ error: "Erro ao enviar o email." }); 
+    }
+});
 
 // Base de dados temporária para tokens de recuperação (Ficheiro local)
 const RESET_TOKENS_FILE = path.join(DATA_DIR, "reset_tokens.json");
