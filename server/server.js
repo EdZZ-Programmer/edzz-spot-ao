@@ -111,9 +111,18 @@ function verifyAdmin(req) {
         const auth = req.headers.authorization || "";
         const token = auth.replace("Bearer ", "").trim();
         if (!token) return null;
+        
+        // Valida o token
         const decoded = jwt.verify(token, JWT_SECRET);
         if (decoded.role !== "admin") return null;
-        return decoded;
+
+        // Valida na base de dados (se ele ainda existe e se ainda é admin)
+        const users = readUsers();
+        const user = users.find(u => u.id === decoded.id);
+        
+        if (!user || user.role !== "admin") return null;
+
+        return user;
     } catch { return null; }
 }
 
@@ -728,31 +737,6 @@ app.patch("/api/orders/:id/status", (req, res) => {
     }
 });
 
-/* ----------------------------------------------------------
-   ADMIN PADRÃO
----------------------------------------------------------- */
-(async () => {
-    const users = readUsers();
-
-    if (!users.find(u => u.role === "admin")) {
-        const passwordHash = await bcrypt.hash("EdZZ@1234", 10);
-
-        users.push({
-            id: 1,
-            name: "Administrador",
-            email: "admin@edzzspot.ao",
-            phone: "946665266",
-            passwordHash,
-            role: "admin",
-            securityQuestion: "Qual é o nome do fundador da EdZZ-Spot?",
-            securityAnswerHash: await bcrypt.hash("edmilson", 10),
-            createdAt: new Date().toISOString()
-        });
-
-        saveUsers(users);
-        console.log("👑 Conta admin criada: admin@edzzspot.ao / EdZZ@1234");
-    }
-})();
 
 /* ----------------------------------------------------------
    TRATAMENTO GLOBAL DE ERROS
